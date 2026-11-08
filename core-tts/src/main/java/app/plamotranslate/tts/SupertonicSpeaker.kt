@@ -10,11 +10,15 @@ import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsSupertonicModelConfig
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.Executors
@@ -24,7 +28,8 @@ import java.util.concurrent.Executors
  * 31言語を読めるが、中国語は含まない（[LANGUAGES]）。モデルは [dir] に置いた7つのファイルで、
  * 初めて読むときに読み込み、閉じるまで持っておく。
  *
- * 音は作ったそばから流す（sherpa-onnxは文のまとまりごとにコールバックを呼ぶ）。長い訳文でも最初の音が早く出る。
+ * sherpa-onnxは渡した文をまとめて作り終えてから、コールバックを1回だけ呼ぶ（実機で確認）。
+ * 長い訳文でも最初の音を早く出すため、文に分けて1文ずつ作り、鳴らしている間に次の文を作る。
  */
 class SupertonicSpeaker(
     private val dir: File,
@@ -59,25 +64,47 @@ class SupertonicSpeaker(
             )
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
-        var frames = 0L
-        try {
-            track.play()
-            val start = System.nanoTime()
-            val config = GenerationConfig(
-                sid = voice.coerceIn(0, maxOf(0, engine.numSpeakers() - 1)),
-                speed = speed,
-                numSteps = NUM_STEPS,
-                extra = mapOf("lang" to lang.substringBefore('-')),
-            )
-            engine.generateWithConfigAndCallback(text, config) { samples ->
-                if (!job.isActive) return@generateWithConfigAndCallback 0
-                if (frames == 0L) Log.i(TAG, "読み上げ: 最初の音まで ${(System.nanoTime() - start) / 1_000_000}ms")
-                track.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
-                frames += samples.size
-                1
+        val config = GenerationConfig(
+            sid = voice.coerceIn(0, maxOf(0, engine.numSpeakers() - 1)),
+            speed = speed,
+            numSteps = NUM_STEPS,
+            extra = mapOf("lang" to lang.substringBefore('-')),
+        )
+        // 作った音を鳴らす側へ渡す。鳴らす側は書き込みで待つので、作る側（このスレッド）は止めない
+        val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        // ネイティブ側はコールバックの invoke(float[]): Integer を名前と型で探して呼ぶ。
+        // ラムダで渡すとinvokedynamicで作られ、そのメソッドが無く NoSuchMethodError で落ちる（2026-11-08、実機）。
+        // 型を明示したクラスにして、invoke(float[]): Integer を必ず持たせる
+        val callback = object : (FloatArray) -> Int {
+            override fun invoke(samples: FloatArray): Int {
+                if (!job.isActive) return 0
+                chunks.trySend(samples.copyOf())
+                return 1
             }
-            // 書き終えた分が鳴り終わるまで待つ
-            while (job.isActive && track.playbackHeadPosition < frames) delay(30)
+        }
+        val start = System.nanoTime()
+        try {
+            coroutineScope {
+                launch(Dispatchers.IO) {
+                    var frames = 0L
+                    track.play()
+                    for (samples in chunks) {
+                        if (frames == 0L) Log.i(TAG, "読み上げ: 最初の音まで ${(System.nanoTime() - start) / 1_000_000}ms")
+                        track.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
+                        frames += samples.size
+                    }
+                    // 書き終えた分が鳴り終わるまで待つ
+                    while (isActive && track.playbackHeadPosition < frames) delay(30)
+                }
+                try {
+                    for (sentence in sentences(text)) {
+                        if (!job.isActive) break
+                        engine.generateWithConfigAndCallback(sentence, config, callback)
+                    }
+                } finally {
+                    chunks.close()
+                }
+            }
         } finally {
             if (track.playState == AudioTrack.PLAYSTATE_PLAYING) {
                 track.pause()
@@ -132,11 +159,21 @@ class SupertonicSpeaker(
             "vocoder.int8.onnx", "tts.json", "unicode_indexer.bin", "voice.bin",
         )
 
-        /** 音を作る段数。sherpa-onnxの例と同じ8。減らすと速く、粗くなる。 */
-        private const val NUM_STEPS = 8
+        /**
+         * 音を作る段数。減らすと速く、粗くなる。REDMAGIC 11 Proで4.2秒分の日本語を作る時間は
+         * 3段0.95秒・5段1.5秒・8段2.4秒（2026-11-08、docs/04「読み上げ」）。待ち時間と質の間をとって5。
+         */
+        private const val NUM_STEPS = 5
 
-        /** 読み上げは翻訳と同時には走らないことが多いが、翻訳のスレッドと取り合わないよう2つにとどめる。 */
-        private const val NUM_THREADS = 2
+        /** 2から4で約1割速くなり、6にしても変わらない（2026-11-08、実機）。翻訳と同時には走らないので4。 */
+        private const val NUM_THREADS = 4
+
+        /** 文の終わりの記号（日本語・中国語の句点、全角の！？、英語などの .!?）。 */
+        private val SENTENCE_END = Regex("(?<=[。！？!?]|\\.(?=\\s))\\s*|\\n+")
+
+        /** [text] を文に分ける。最初の音を早く出すため、文ごとに作って鳴らす。 */
+        fun sentences(text: String): List<String> =
+            text.split(SENTENCE_END).map { it.trim() }.filter { it.isNotEmpty() }
 
         /** sherpa-onnxのTTSは同時に使えないので、1本のスレッドに寄せる。 */
         private val dispatcher: CoroutineDispatcher =
