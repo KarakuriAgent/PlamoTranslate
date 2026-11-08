@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- 画面翻訳の評価用（デバッグビルドだけ）。adb shell am start -n app.plamotranslate/.BenchActivity -->
+        <activity
+            android:name=".BenchActivity"
+            android:exported="true" />
+        <!-- 翻訳モデル（0.8B・2B）の比べ（デバッグビルドだけ）。docs/03_翻訳コア.md「モデルの比べ方」 -->
+        <activity
+            android:name=".TranslateBenchActivity"
+            android:exported="true" />
+        <!-- 会話翻訳の動作確認用：デバッグ版だけadbから音声ファイルを渡して開ける（docs/04_会話翻訳.md「動作確認」） -->
+        <activity
+            android:name=".conversation.ConversationActivity"
+            android:exported="true"
+            xmlns:tools="http://schemas.android.com/tools"
+            tools:replace="android:exported" />
+    </application>
+</manifest>

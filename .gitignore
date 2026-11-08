@@ -1,0 +1,36 @@
+# モデルの重み（Gitに入れない）
+*.gguf
+*.onnx
+*.ort
+*.bin
+/models/
+
+# sherpa-onnxのAAR（37MB。tools/get-sherpa-onnx.ps1 で取得する）
+/third_party/sherpa-onnx/
+
+# 作者の声を含むテスト音声
+/tools/testdata/**/*.wav
+
+# 画面翻訳の評価用スクリーンショット（漫画など著作物を含むためPC内だけに置く）
+/tools/testdata/ocr/
+
+# 署名鍵（リポジトリの外に置く。docs/06_開発環境.md「配布用のAPK」）
+*.jks
+*.keystore
+keystore.properties
+
+# Android / Gradle
+local.properties
+.gradle/
+build/
+/build-android/
+.idea/
+*.iml
+.cxx/
+.externalNativeBuild/
+captures/
+*.apk
+*.aab
+
+# 配る用に控えた正式版のAPK（docs/06_開発環境.md「配布用のAPK」）
+/dist/

@@ -1,0 +1,15 @@
+# 翻訳モデルの比べに使う文（2026-11-06作成。自作の文）。原文の言語 TAB 訳先の言語 TAB 原文
+# 会話・案内文・少し長い文・言い回しの難しい文を混ぜた。docs/03_翻訳コア.md「モデルの比べ方」
+ko	ja	혹시 이 근처에 현금 인출기 있어요?
+ko	ja	예약은 7시로 했는데, 조금 늦을 것 같아서 미리 연락드렸어요.
+ko	ja	이거 진짜 맛있다! 다음에 또 오자.
+ko	ja	회의 자료는 어제 메일로 보내드렸는데, 혹시 못 받으셨으면 말씀해 주세요.
+en	ja	Could you tell me which platform the train to the airport leaves from?
+en	ja	I'm not sure I follow — are you saying the meeting has been pushed back to Thursday?
+en	ja	The firmware update fixes a bug where the device would occasionally fail to reconnect after waking from sleep.
+zh	ja	你今天怎么这么晚才回来？我等你好久了。
+zh	ja	这件事你别管了，我自己会处理的。
+ja	ko	すみません、この料理にはエビが入っていますか？アレルギーがあるんです。
+ja	ko	明日の打ち合わせ、10時からに変えてもらえると助かります。
+ja	en	駅から少し歩きますが、景色がきれいなのでおすすめです。
+ja	en	その件は持ち帰って検討させてください。来週中にはお返事します。

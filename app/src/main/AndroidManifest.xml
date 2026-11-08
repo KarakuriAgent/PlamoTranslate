@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 画面翻訳：浮遊ボタンと訳の表示（作者が設定画面で許可する） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- 画面翻訳：画面共有を続けるフォアグラウンドサービス -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 会話翻訳：マイク -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- カメラ翻訳 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <!-- 初回起動時のモデルのダウンロードだけに使う。翻訳・認識の処理は通信しない -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="PLaMo翻訳"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <!-- GPU（Adreno）で翻訳するため、端末のOpenCLドライバーを使う（/vendor/etc/public.libraries.txt で公開済み） -->
+        <uses-native-library
+            android:name="libOpenCL.so"
+            android:required="false" />
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- アイコンの長押しメニュー -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!-- 会話翻訳。上下2分割で上半分を180°回すので、縦向きに固定する。
+             アイコンの長押しメニューから直接開くため exported -->
+        <activity
+            android:name=".conversation.ConversationActivity"
+            android:exported="true"
+            android:screenOrientation="portrait" />
+
+        <!-- カメラ翻訳。枠の位置の計算を簡単にするため縦向きに固定する。長押しメニューから開くため exported -->
+        <activity
+            android:name=".camera.CameraTranslateActivity"
+            android:exported="true"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".TextTranslateActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+
+        <!-- クイック設定の「画面翻訳」タイル -->
+        <service
+            android:name=".screen.ScreenTranslateTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_launcher_monochrome"
+            android:label="@string/tile_screen"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
+        <service
+            android:name=".screen.ScreenTranslateService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+    </application>
+</manifest>

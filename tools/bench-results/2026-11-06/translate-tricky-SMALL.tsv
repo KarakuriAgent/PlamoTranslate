@@ -1,0 +1,55 @@
+model	src	tgt	ms	tokens	tok_per_s	source	translation
+0.8B	ko	ja	205	9	43.9	안 먹은 건 아닌데 배가 별로 안 고파.	食べていないわけじゃないのに、あんまりお腹が空いていません。
+0.8B	ko	ja	122	4	32.8	그 사람이 모를 리가 없잖아.	その人が知らないはずがありません。
+0.8B	ko	ja	175	7	40.0	가기 싫은 건 아니고, 그냥 좀 피곤해서 그래.	行きたくないわけじゃないんですけど、ちょっと疲れてるんです。
+0.8B	ko	ja	190	7	36.8	내가 언제 너한테 화냈다고 그래?	私がいつ君に怒ったって？
+0.8B	ko	ja	168	6	35.7	이 정도면 못 먹을 정도는 아니네.	この程度なら食べられないほどではありません。
+0.8B	ko	ja	171	6	35.1	안 그래도 연락하려던 참이었어.	ちょうど連絡しようとしていたところでした。
+0.8B	ko	ja	160	6	37.5	잘~한다. 또 지각이야?	よく～してます。また遅刻ですか？
+0.8B	ko	ja	93	2	21.5	누가 아니래.	誰でもありません。
+0.8B	ko	ja	138	5	36.2	말이 되는 소리를 해.	筋の通ったことを言って。
+0.8B	ko	ja	135	5	37.0	그럴 수도 있지, 뭐.	そうかもしれませんね、まあ。
+0.8B	ko	ja	151	6	39.7	하나도 안 아프거든? 괜찮아.	全然痛くないですよ？大丈夫です。
+0.8B	ko	ja	183	8	43.7	눈이 높아서 아무나 안 만나.	目が高いので誰とでも会えません。
+0.8B	ko	ja	100	3	30.0	배가 불렀구나.	お腹がいっぱいですね。
+0.8B	ko	ja	199	9	45.2	손이 커서 음식을 늘 너무 많이 해.	手が大きいので、いつも食べ物を作りすぎてしまいます。
+0.8B	ko	ja	154	6	39.0	발이 넓어서 모르는 사람이 없어.	足幅が広いので知らない人はいません。
+0.8B	en	ja	157	6	38.2	I wouldn't say no to another slice.	もう一切れ、お断りはしません。
+0.8B	en	ja	136	5	36.8	It's not that I don't like him.	彼のことが嫌いなわけではありません。
+0.8B	en	ja	158	7	44.3	You can't not go to her wedding.	彼女の結婚式に行かないわけにはいきません。
+0.8B	en	ja	146	6	41.1	Not bad at all. I'm actually impressed.	全然悪くないですね。むしろ感心しました。
+0.8B	en	ja	190	8	42.1	I couldn't care less what they think.	彼らが何と思おうが知ったことではありません。
+0.8B	en	ja	161	7	43.5	Yeah, right. Like that's ever going to happen.	まあ、まさか。そんなこと起きるわけないですよね。
+0.8B	en	ja	163	6	36.8	You don't mind if I sit here, do you?	ここに座っても構いませんよね？
+0.8B	en	ja	112	3	26.8	I'm not unhappy with the result.	結果に不満はありません。
+0.8B	en	ja	178	7	39.3	It's been ages. You haven't changed a bit.	ずいぶん久しぶりですね。全然変わってないですね。
+0.8B	en	ja	133	5	37.6	That's a bit of a stretch, isn't it?	ちょっと無理があるんじゃないですか？
+0.8B	en	ja	110	3	27.3	Break a leg tonight!	今夜は頑張ってください！
+0.8B	en	ja	157	6	38.2	He's not the sharpest tool in the shed.	彼はそれほど冴えた道具ではありません。
+0.8B	en	ja	133	5	37.6	I'll believe it when I see it.	実際に見て初めて分かります。
+0.8B	en	ja	150	6	40.0	No offense, but that's not happening.	悪く思うかもしれませんが、そんなことは起きません。
+0.8B	en	ja	137	5	36.5	Oh, you shouldn't have!	ああ、すべきじゃなかったのに！
+0.8B	ja	ko	351	20	57.0	行けなくもないけど、ちょっと遠いかな。	갈 수는 있겠지만, 좀 멀려나.
+0.8B	ja	ko	183	9	49.2	嫌いじゃないです。	싫지 않아요.
+0.8B	ja	ko	195	10	51.3	考えておきます。	생각해 둘게요.
+0.8B	ja	ko	182	9	49.5	結構です。	괜찮습니다.
+0.8B	ja	ko	376	21	55.9	大丈夫です、袋はいらないです。	괜찮습니다, 봉투는 필요 없습니다.
+0.8B	ja	ko	382	23	60.2	知らないわけじゃないけど、詳しくはないです。	모르는 건 아니지만, 자세히는 모르겠어요.
+0.8B	ja	ko	432	23	53.2	食べられないことはないけど、ちょっと辛いです。	못 먹을 정도는 아니지만, 좀 맵네요.
+0.8B	ja	ko	219	10	45.7	別にいいけど。	딱히 상관없는데.
+0.8B	ja	ko	320	17	53.1	まあ、悪くはないんじゃない？	뭐, 나쁘지는 않지 않아?
+0.8B	ja	ko	193	10	51.8	ちょっと難しいですね。	조금 어렵네요.
+0.8B	ja	ko	229	12	52.4	それはないでしょう。	그럴 리 없죠.
+0.8B	ja	ko	402	23	57.2	お言葉に甘えて、いただきます。	말씀하신 대로 잘 먹겠습니다.
+0.8B	ja	en	176	8	45.5	行けなくもないけど、ちょっと遠いかな。	I could go, but it's a bit far.
+0.8B	ja	en	115	4	34.8	嫌いじゃないです。	I don't dislike it.
+0.8B	ja	en	127	5	39.4	考えておきます。	I'll think about it.
+0.8B	ja	en	96	3	31.3	結構です。	No thanks.
+0.8B	ja	en	174	8	46.0	大丈夫です、袋はいらないです。	It's fine, I don't need a bag.
+0.8B	ja	en	175	8	45.7	知らないわけじゃないけど、詳しくはないです。	It's not that I don't know, but I'm not sure.
+0.8B	ja	en	207	10	48.3	食べられないことはないけど、ちょっと辛いです。	It's not inedible, but it's a bit spicy.
+0.8B	ja	en	99	3	30.3	別にいいけど。	I don't mind.
+0.8B	ja	en	158	7	44.3	まあ、悪くはないんじゃない？	Well, it's not bad, is it?
+0.8B	ja	en	112	4	35.7	ちょっと難しいですね。	That's a bit difficult.
+0.8B	ja	en	98	3	30.6	それはないでしょう。	That's unlikely.
+0.8B	ja	en	221	11	49.8	お言葉に甘えて、いただきます。	I'll take you up on your offer and have some.

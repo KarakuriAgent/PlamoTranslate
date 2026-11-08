@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- アイコンの長押しメニュー（2026-11-06）。使う頻度の順（会話→カメラ→画面→テキスト） -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="conversation"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_conversation">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="app.plamotranslate.conversation.ConversationActivity"
+            android:targetPackage="app.plamotranslate" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="camera"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_camera">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="app.plamotranslate.camera.CameraTranslateActivity"
+            android:targetPackage="app.plamotranslate" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="screen"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_screen">
+        <intent
+            android:action="app.plamotranslate.action.SCREEN_TRANSLATE"
+            android:targetClass="app.plamotranslate.MainActivity"
+            android:targetPackage="app.plamotranslate" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="text"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_text">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="app.plamotranslate.TextTranslateActivity"
+            android:targetPackage="app.plamotranslate" />
+    </shortcut>
+</shortcuts>

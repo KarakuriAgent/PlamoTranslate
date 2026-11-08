@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  アプリのアイコン（2026-11-06）。会話翻訳の対面モードを図にした：向かい合う2人の吹き出しを点対称に置き、
+  相手側の吹き出しは逆さにする。こちらの吹き出し（コーラル）には声の波形、相手側（ミント）には訳文の行を描き、
+  「声が文字になって相手に届く」ことを表す。翻訳アプリでよく見る「文字の入った吹き出し」は避けた（作者の要望）。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="1.06"
+        android:scaleY="1.06">
+        <!-- こちらの吹き出しと声の波形 -->
+        <path
+            android:fillColor="#FFFF8A65"
+            android:pathData="M34,57 H56 A6,6 0 0 1 62,63 V71 A6,6 0 0 1 56,77 H40 L33,82 L34,77 A6,6 0 0 1 28,71 V63 A6,6 0 0 1 34,57 Z" />
+        <path
+            android:pathData="M36,64.5 V69.5 M41,61.5 V72.5 M46,59.5 V74.5 M51,62.5 V71.5 M56,64.5 V69.5"
+            android:strokeWidth="3.2"
+            android:strokeColor="#FF1E2440"
+            android:strokeLineCap="round" />
+        <!-- 相手側の吹き出し（逆さ）と訳文の行 -->
+        <path
+            android:fillColor="#FF7FE0C8"
+            android:pathData="M74,51 H52 A6,6 0 0 1 46,45 V37 A6,6 0 0 1 52,31 H68 L75,26 L74,31 A6,6 0 0 1 80,37 V45 A6,6 0 0 1 74,51 Z" />
+        <path
+            android:pathData="M52,36.5 H74 M60,41 H74 M56,45.5 H74"
+            android:strokeWidth="3.2"
+            android:strokeColor="#FF1E2440"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

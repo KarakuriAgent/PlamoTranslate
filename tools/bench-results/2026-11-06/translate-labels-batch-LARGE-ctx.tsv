@@ -1,0 +1,5 @@
+model	src	tgt	ms	tokens	tok_per_s	source	translation
+2B	ko	ja	1577	23	14.6	정지\n세기\n일월화수목금토\n바람\n풍향\n운전선택\n부가운전\n환기	停止\n世紀\n日月火水木金土\n風\n風向\n運転選択\n付加運転\n換気
+2B	ko	ja	1242	17	13.7	예약\n해제\n현재시각\n정지\n송풍\n난방\n취소\n세기	予約\n解除\n現在時刻\n停止\n送風\n暖房\nキャンセル\nカウント
+2B	ko	ja	416	2	4.8	바람 세기	風の強さ
+2B	ko	ja	446	2	4.5	운전 정지	運転停止

@@ -1,0 +1,42 @@
+# 版はllama.cppの examples/llama.android（9c9074e時点）で動作実績のある組み合わせに合わせた（2026-11-05）
+[versions]
+agp = "8.13.2"
+kotlin = "2.3.0"
+coroutines = "1.10.2"
+core-ktx = "1.17.0"
+activity-compose = "1.12.2"
+lifecycle = "2.10.0"
+compose-bom = "2025.12.01"
+mlkit-text = "16.0.1"
+onnxruntime = "1.31.1"
+# sherpa-onnx はMavenに無いのでGitHubのリリースのAARを使う（tools/get-sherpa-onnx.ps1、版を変えたらそちらのハッシュも直す）
+sherpa-onnx = "2.0.1"
+# カメラ翻訳の映像の取り込み（2026-11-06、作者了承）
+camerax = "1.4.2"
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+
+[libraries]
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity-compose" }
+androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+junit = { group = "junit", name = "junit", version = "4.13.2" }
+onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
+mlkit-text-latin = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkit-text" }
+mlkit-text-japanese = { group = "com.google.mlkit", name = "text-recognition-japanese", version.ref = "mlkit-text" }
+mlkit-text-korean = { group = "com.google.mlkit", name = "text-recognition-korean", version.ref = "mlkit-text" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
+mlkit-text-chinese ={ group = "com.google.mlkit", name = "text-recognition-chinese", version.ref = "mlkit-text" }

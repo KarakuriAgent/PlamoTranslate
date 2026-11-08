@@ -1,0 +1,106 @@
+package app.plamotranslate.llm
+
+/**
+ * PLaMo 3 Translateが扱う53言語（モデルカード「Supported Languages」、2026-11-08確認）。
+ * [code] はPFML3の lang 属性に書く値（docs/03_翻訳コア.md）。
+ * 並びは選択肢に出す順：よく使う5つを先に、残りは五十音順。
+ * どの機能でどの言語を選べるかは、前段の認識器が読める・聞き分けられる言語で決まる（カメラ翻訳・会話翻訳）。
+ */
+enum class Language(val code: String, val label: String) {
+    JA("ja", "日本語"),
+    KO("ko", "韓国語"),
+    EN("en", "英語"),
+    ZH("zh-hans", "中国語（簡体字）"),
+    ZH_HANT("zh-hant", "中国語（繁体字）"),
+    AZ("az", "アゼルバイジャン語"),
+    AR("ar", "アラビア語"),
+    HY("hy", "アルメニア語"),
+    IT("it", "イタリア語"),
+    ID("id", "インドネシア語"),
+    UZ("uz", "ウズベク語"),
+    UR("ur", "ウルドゥー語"),
+    ET("et", "エストニア語"),
+    NL("nl", "オランダ語"),
+    KK("kk", "カザフ語"),
+    CA("ca", "カタルーニャ語"),
+    KM("km", "クメール語"),
+    GU("gu", "グジャラート語"),
+    HR("hr", "クロアチア語"),
+    JV("jv", "ジャワ語"),
+    KA("ka", "ジョージア語"),
+    SI("si", "シンハラ語"),
+    ES("es", "スペイン語"),
+    SK("sk", "スロバキア語"),
+    SL("sl", "スロベニア語"),
+    SW("sw", "スワヒリ語"),
+    CEB("ceb", "セブアノ語"),
+    SR("sr", "セルビア語"),
+    TH("th", "タイ語"),
+    TL("tl", "タガログ語"),
+    TA("ta", "タミル語"),
+    TE("te", "テルグ語"),
+    DE("de", "ドイツ語"),
+    NE("ne", "ネパール語"),
+    HU("hu", "ハンガリー語"),
+    EU("eu", "バスク語"),
+    PA("pa", "パンジャブ語"),
+    HI("hi", "ヒンディー語"),
+    MY("my", "ビルマ語"),
+    FR("fr", "フランス語"),
+    BG("bg", "ブルガリア語"),
+    HE("he", "ヘブライ語"),
+    VI("vi", "ベトナム語"),
+    FA("fa", "ペルシア語"),
+    BE("be", "ベラルーシ語"),
+    BN("bn", "ベンガル語"),
+    PL("pl", "ポーランド語"),
+    MR("mr", "マラーティー語"),
+    ML("ml", "マラヤーラム語"),
+    MS("ms", "マレー語"),
+    LV("lv", "ラトビア語"),
+    LT("lt", "リトアニア語"),
+    RU("ru", "ロシア語"),
+    ;
+
+    companion object {
+        /** PFML3の言語コードから引く。知らないコードなら null。 */
+        fun ofCode(code: String): Language? = entries.firstOrNull { it.code == code }
+    }
+}
+
+/** 日本語へ訳すときの文体。 */
+enum class JapaneseForm(val code: String) { PLAIN("plain"), POLITE("polite") }
+
+data class TranslationRequest(
+    val text: String,
+    /** null なら原文の言語をモデルに判定させる。 */
+    val source: Language?,
+    val target: Language,
+    val form: JapaneseForm = JapaneseForm.POLITE,
+    /**
+     * 原文の背景（PFML3の context）。短い語だけでは意味が決まらないとき（機器のボタンの「정지」を停止と訳すなど）に渡す。
+     * null なら書かない（docs/03_翻訳コア.md「PFML3プロンプト」）。
+     */
+    val context: String? = null,
+)
+
+/** PFML3形式のプロンプトを組み立てる。改行は入れず1行につなぐ。 */
+object Pfml3PromptBuilder {
+    private const val MARK = "<|plamo:"
+
+    fun build(request: TranslationRequest): String = buildString {
+        append("<|plamo:tag|>dataset<|plamo:msg|>translation")
+        request.context?.takeIf { it.isNotBlank() }?.let { append("<|plamo:tag|>context<|plamo:msg|>").append(sanitize(it)) }
+        append("<|plamo:tag|>input")
+        request.source?.let { append("<|plamo:key|>lang<|plamo:val|>").append(it.code) }
+        append("<|plamo:msg|>").append(sanitize(request.text))
+        append("<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>").append(request.target.code)
+        if (request.target == Language.JA) {
+            append("<|plamo:key|>form<|plamo:val|>").append(request.form.code)
+        }
+        append("<|plamo:msg|>")
+    }
+
+    /** 原文に区切り文字列が混ざるとプロンプトが壊れるので取り除く。 */
+    internal fun sanitize(text: String): String = text.replace(MARK, "").trim()
+}
