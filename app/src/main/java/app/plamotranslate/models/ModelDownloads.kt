@@ -55,14 +55,17 @@ object ModelDownloads {
 
     /**
      * ダウンロードを始める。[extra] を渡すと、初回にそろえるファイルの代わりにそれを取る
-     * （2Bの翻訳モデルを選んだとき）。
+     * （2Bの翻訳モデル、読み上げのモデルを選んだとき）。置き済みのファイルは飛ばす。
      */
-    fun start(context: Context, onCompleted: () -> Unit, extra: ModelFile? = null) {
+    fun start(context: Context, onCompleted: () -> Unit, extra: List<ModelFile>? = null) {
         if (job?.isActive == true) return
         val app = context.applicationContext
-        if (extra != null) extraError.value = null
+        if (extra != null) {
+            extraError.value = null
+            lastExtra = extra
+        }
         job = scope.launch {
-            val missing = if (extra != null) listOf(extra) else ModelCatalog.missing(app)
+            val missing = extra?.filter { it.file(app).length() != it.size } ?: ModelCatalog.missing(app)
             val total = missing.sumOf { it.size }
             var doneBefore = 0L
             try {
@@ -93,8 +96,13 @@ object ModelDownloads {
         job?.cancel()
     }
 
-    /** 追加のダウンロード（2Bの翻訳モデル）の失敗。翻訳モデルの欄に出す。 */
+    /** 追加のダウンロード（2Bの翻訳モデル、読み上げのモデル）の失敗。設定の画面のその欄に出す。 */
     val extraError = MutableStateFlow<String?>(null)
+
+    /** 最後に始めた追加のダウンロード。[extraError] をどの欄に出すかを決める。 */
+    @Volatile
+    var lastExtra: List<ModelFile>? = null
+        private set
 
     private fun refreshAfter(app: Context) {
         val missing = ModelCatalog.missing(app)

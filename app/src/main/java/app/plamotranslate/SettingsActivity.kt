@@ -36,7 +36,7 @@ import app.plamotranslate.models.DownloadState
 import app.plamotranslate.models.ModelDownloads
 import app.plamotranslate.models.TranslationModel
 
-/** 設定（2026-11-06、トップ画面から分けた）。翻訳モデルの選択・2Bのダウンロード・今の状態・パフォーマンス・このアプリについて（2026-11-08）。 */
+/** 設定（2026-11-06、トップ画面から分けた）。翻訳モデルの選択・2Bのダウンロード・今の状態・読み上げ・パフォーマンス・このアプリについて（2026-11-08）。 */
 class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,6 +60,7 @@ private fun SettingsScreen(onBack: () -> Unit) {
             }
             ModelChooser(model)
             ModelStatus(model, onRetry = { EngineHolder.ensureLoaded(context.applicationContext) })
+            SpeechCard()
             PerformanceCard(model)
             val version = remember {
                 context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: ""
@@ -114,10 +115,10 @@ private fun ModelChooser(model: ModelState) {
                     style = MaterialTheme.typography.bodySmall,
                 )
                 OutlinedButton(onClick = {
-                    ModelDownloads.start(context, onCompleted = { refresh++ }, extra = large.file)
+                    ModelDownloads.start(context, onCompleted = { refresh++ }, extra = listOf(large.file))
                 }) { Text("2Bをダウンロード") }
             }
-            extraError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            extraError?.takeIf { ModelDownloads.lastExtra == listOf(large.file) }?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         }
     }
 }

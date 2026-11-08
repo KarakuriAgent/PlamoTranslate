@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,6 +66,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.plamotranslate.AppTheme
 import app.plamotranslate.ModelState
 import app.plamotranslate.ModelSwitch
+import app.plamotranslate.ReadAloud
 import app.plamotranslate.llm.Language
 
 /**
@@ -127,8 +130,9 @@ class ConversationActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        // 画面を離れたらマイクを止める（フォアグラウンドサービスはまだ無い）
+        // 画面を離れたらマイクと読み上げを止める（フォアグラウンドサービスはまだ無い）
         vm.stop()
+        ReadAloud.stop()
     }
 
     private fun startListening() {
@@ -418,6 +422,8 @@ private fun FaceCard(turn: Turn, reader: Reader) {
     val originalFirst = d.source == readerLanguage
     val translation = turn.translation.ifEmpty { "…" }
     UtteranceCard(
+        turn = turn,
+        translationIsMain = !originalFirst,
         label = cardLabel(d, reader),
         mine = d.mine,
         right = d.mine == (reader == Reader.ME),
@@ -433,6 +439,8 @@ private fun FaceCard(turn: Turn, reader: Reader) {
 @Composable
 private fun SharedCard(turn: Turn) {
     UtteranceCard(
+        turn = turn,
+        translationIsMain = true,
         label = cardLabel(turn.direction, null),
         mine = turn.direction.mine,
         right = turn.direction.mine,
@@ -448,9 +456,13 @@ private fun SharedCard(turn: Turn) {
 /**
  * 確定したカード。見出し（誰が・何語から何語へ）、本文2つ、かかった時間を縦に並べる。
  * 色は話した人ごとに分け、背景と混ざらないよう地の色との差がはっきりした組み合わせにする。
+ * 訳文をタップすると、訳した先の言語で読み上げる（2026-11-08、作者の要望。[ReadAloud]）。読んでいる間は見出しに🔊を出し、
+ * もう一度タップすると止める。
  */
 @Composable
 private fun UtteranceCard(
+    turn: Turn,
+    translationIsMain: Boolean,
     label: String,
     mine: Boolean,
     right: Boolean,
@@ -463,6 +475,12 @@ private fun UtteranceCard(
 ) {
     val (container, content) = speakerColors(mine)
     val pendingColor = content.copy(alpha = 0.45f)
+    val context = LocalContext.current
+    val speaking by ReadAloud.speaking.collectAsStateWithLifecycle()
+    val key = "turn-${turn.id}"
+    val speak = Modifier.clickable(enabled = turn.translated && turn.translation.isNotBlank()) {
+        ReadAloud.toggle(context, key, turn.translation, turn.direction.target)
+    }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (right) Arrangement.End else Arrangement.Start) {
         Surface(
             modifier = Modifier.fillMaxWidth(0.92f),
@@ -472,12 +490,28 @@ private fun UtteranceCard(
         ) {
             SelectionContainer {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(label, style = MaterialTheme.typography.labelMedium, color = content.copy(alpha = 0.7f))
+                    Text(
+                        if (speaking == key) "🔊 $label" else label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = content.copy(alpha = 0.7f),
+                    )
                     val mainText = @Composable {
-                        Text(main, style = ConversationType.main, color = if (mainPending) pendingColor else content)
+                        Text(
+                            main,
+                            style = ConversationType.main,
+                            color = if (mainPending) pendingColor else content,
+                            modifier = if (translationIsMain) speak else Modifier,
+                        )
                     }
                     val subText = @Composable {
-                        if (sub.isNotEmpty()) Text(sub, style = ConversationType.sub, color = if (subPending) pendingColor else content.copy(alpha = 0.85f))
+                        if (sub.isNotEmpty()) {
+                            Text(
+                                sub,
+                                style = ConversationType.sub,
+                                color = if (subPending) pendingColor else content.copy(alpha = 0.85f),
+                                modifier = if (translationIsMain) Modifier else speak,
+                            )
+                        }
                     }
                     if (subFirst) { subText(); mainText() } else { mainText(); subText() }
                     if (stats.isNotEmpty()) {

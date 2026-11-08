@@ -52,6 +52,7 @@ import app.plamotranslate.llm.Language
  * テキスト翻訳（2026-11-06、トップ画面から分けた）。原文の言語の既定は自動判定。
  * 原文の欄に、クリップボードからの貼り付け（貼ったらすぐ訳す）と消去のボタンを置く（作者の要望）。
  * 原文は音声でも入れられる（2026-11-08、作者の要望。欄の右端のマイク、[TranslateViewModel.startVoice]）。
+ * 訳文は右端の🔊で読み上げる（2026-11-08、作者の要望、[ReadAloud]）。
  */
 class TextTranslateActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,12 +60,20 @@ class TextTranslateActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent { AppTheme { TextTranslateScreen(onBack = ::finish) } }
     }
+
+    override fun onStop() {
+        super.onStop()
+        ReadAloud.stop()
+    }
 }
+
+private const val SPEECH_KEY = "text-output"
 
 @Composable
 private fun TextTranslateScreen(onBack: () -> Unit, vm: TranslateViewModel = viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val model by vm.model.collectAsStateWithLifecycle()
+    val speaking by ReadAloud.speaking.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         @Suppress("MissingPermission")
@@ -142,12 +151,19 @@ private fun TextTranslateScreen(onBack: () -> Unit, vm: TranslateViewModel = vie
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SelectionContainer {
-                        Text(
-                            text = state.output.ifEmpty { if (state.translating) "…" else "" },
-                            fontSize = 20.sp,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
-                        )
+                    // 訳文の右端の中央に読み上げ（2026-11-08、作者の要望。原文の欄の右端のマイクと対にする）
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        SelectionContainer(Modifier.weight(1f)) {
+                            Text(
+                                text = state.output.ifEmpty { if (state.translating) "…" else "" },
+                                fontSize = 20.sp,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
+                            )
+                        }
+                        TextButton(
+                            onClick = { ReadAloud.toggle(context, SPEECH_KEY, state.output, state.target) },
+                            enabled = state.output.isNotBlank() && !state.translating,
+                        ) { Text(if (speaking == SPEECH_KEY) "■" else "🔊", fontSize = 22.sp) }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(state.stats, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))

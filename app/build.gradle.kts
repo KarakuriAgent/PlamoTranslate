@@ -27,8 +27,8 @@ android {
         applicationId = "app.plamotranslate"
         minSdk = 33  // 性能ヒント（APerformanceHint）がAPI 33から
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.3.4"
+        versionCode = 9
+        versionName = "0.4.0"
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -78,7 +78,8 @@ dependencies {
     implementation(project(":core-llm"))
     implementation(project(":core-ocr"))
     implementation(project(":core-asr"))
-    // core-asr が使うsherpa-onnxのAAR。ライブラリモジュールはローカルAARを同梱できないので、ここで同梱する
+    implementation(project(":core-tts"))
+    // core-asr・core-tts が使うsherpa-onnxのAAR。ライブラリモジュールはローカルAARを同梱できないので、ここで同梱する
     implementation(files(rootProject.file("third_party/sherpa-onnx/sherpa-onnx-static-link-onnxruntime-${libs.versions.sherpa.onnx.get()}.aar")))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.camera.camera2)

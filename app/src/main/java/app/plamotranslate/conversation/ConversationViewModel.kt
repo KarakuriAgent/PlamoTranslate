@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.plamotranslate.EngineHolder
 import app.plamotranslate.ModelState
+import app.plamotranslate.ReadAloud
 import app.plamotranslate.asr.AsrEngine
 import app.plamotranslate.asr.AsrEvent
 import app.plamotranslate.asr.SenseVoiceAsr
@@ -209,7 +210,9 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
         log("音声ファイルの認識が終わりました: ${File(path).name}")
     }
 
-    private fun feed(engine: AsrEngine, chunk: FloatArray) {
+    private fun feed(engine: AsrEngine, raw: FloatArray) {
+        // 訳文を読み上げている間とその直後は、マイクの音を無音に置き換える。読み上げの声を発話として拾わないため（2026-11-08）
+        val chunk = if (ReadAloud.isAudible()) FloatArray(raw.size) else raw
         _state.update { it.copy(level = level(chunk)) }
         engine.accept(chunk).forEach(::onEvent)
     }

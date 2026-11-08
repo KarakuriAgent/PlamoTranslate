@@ -8,6 +8,7 @@
 | カメラ翻訳 | 看板・メニュー・ラベルにカメラを向けると、読めた文字の上に訳を重ねる。文章（段落にまとめる）と表・メニュー（1行ずつ）を切り替えられ、タップで一時停止して読める |
 | 画面翻訳 | 浮遊ボタンを押したときだけ画面を撮って文字を認識し、訳文を元の位置に重ねる。中国語・韓国語・英語の原文を自動で判定し、縦書きの漫画は縦書きの日本語で訳す |
 | テキスト翻訳 | 入力欄に入れた文を訳す。PLaMoが扱う53言語に対応し、原文を音声でも入れられる |
+| 読み上げ | 会話翻訳のカードの訳文をタップ、テキスト翻訳の🔊で訳文を読む。端末内のSupertonic 3（設定から約145MBをダウンロード）か、Androidの読み上げエンジンを選べる |
 
 翻訳モデルは0.8B（既定、約570MB）と2B（設定で選んだときだけダウンロード、約1.8GB）を切り替えられます。翻訳はSnapdragonの端末ではGPU（OpenCL）、それ以外の端末ではCPUで動きます。
 
@@ -26,7 +27,7 @@
 
 - このリポジトリのソースコード：[MIT License](LICENSE)
 - 翻訳モデル PLaMo 3 Translate：[PLaMo Community License](https://plamo.preferredai.jp/info/plamo-community-license-ja)。モデルはアプリに同梱せず、使う人の端末が公式の配布元（Hugging Face）からダウンロードします。商用で使う場合は、ライセンスの条件を確かめてください。Built with PLaMo
-- 使っているライブラリとモデル（llama.cpp、sherpa-onnx、SenseVoice、Silero VAD、ML Kit、PP-OCRなど）のライセンスは、アプリの設定の画面の「このアプリについて」と [docs/02_アーキテクチャ.md](docs/02_アーキテクチャ.md)「採用している技術」にあります。
+- 使っているライブラリとモデル（llama.cpp、sherpa-onnx、SenseVoice、Silero VAD、Supertonic 3（OpenRAIL-M）、ML Kit、PP-OCRなど）のライセンスは、アプリの設定の画面の「このアプリについて」と [docs/02_アーキテクチャ.md](docs/02_アーキテクチャ.md)「採用している技術」にあります。
 
 ## ビルド
 

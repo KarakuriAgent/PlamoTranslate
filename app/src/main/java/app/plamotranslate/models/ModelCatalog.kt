@@ -111,6 +111,28 @@ object ModelCatalog {
         ),
     )
 
+    /**
+     * 読み上げのモデル（Supertonic 3、int8、約145MB）。設定の画面で「読み上げ」をSupertonic 3にしたときだけ取る
+     * （2026-11-08、作者の要望）。sherpa-onnx向けに変換したもの。モデルのライセンスはOpenRAIL-M（用途の制限つき）。
+     */
+    private const val SUPERTONIC = "$HF/csukuangfj2/sherpa-onnx-supertonic-3-tts-int8-2026-05-11/resolve/cca5a0e6c96e1d2c720986bf7e75fcc81dee3ae4"
+    const val SPEECH_DIR = "tts/supertonic-3"
+    val speech = listOf(
+        Triple("duration_predictor.int8.onnx", 3_700_147L, "c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db"),
+        Triple("text_encoder.int8.onnx", 36_416_150L, "c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff"),
+        Triple("vector_estimator.int8.onnx", 78_400_833L, "20cd86fa5c6effedfda0e7cffe5b0569ca401c440a0c3a1d72bf39286c0db3fd"),
+        Triple("vocoder.int8.onnx", 25_991_073L, "e923d60f53f95eb1ce235f1dc33ec56d9c057823c96fa6f8acf98f32b0da6152"),
+        Triple("tts.json", 8_253L, "42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09"),
+        Triple("unicode_indexer.bin", 262_144L, "8402ca48e5189a8950138580b0fff64db6f072f24ac07cd54ba8b2fbb9883b30"),
+        Triple("voice.bin", 517_168L, "67d5209b0ee8ce6c74105ffbe12fe6a7628aea3b4ba2fcb308a4a67938a93ce8"),
+    ).map { (name, size, sha) ->
+        ModelFile(label = "読み上げ（Supertonic 3）$name", url = "$SUPERTONIC/$name", path = "$SPEECH_DIR/$name", size = size, sha256 = sha)
+    }
+
+    fun speechDir(context: Context): File = File(modelsDir(context), SPEECH_DIR)
+
+    fun speechPresent(context: Context): Boolean = speech.all { it.file(context).length() == it.size }
+
     fun modelsDir(context: Context): File = File(context.getExternalFilesDir(null), "models")
 
     /**
