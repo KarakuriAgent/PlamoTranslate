@@ -43,6 +43,12 @@ class SettingsActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent { AppTheme { SettingsScreen(onBack = ::finish) } }
     }
+
+    override fun onStop() {
+        super.onStop()
+        // 試し聞きを、画面を離れても鳴らし続けない
+        ReadAloud.stop()
+    }
 }
 
 @Composable

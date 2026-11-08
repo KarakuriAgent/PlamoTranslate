@@ -89,14 +89,29 @@ class SupertonicSpeaker(
             coroutineScope {
                 launch(Dispatchers.IO) {
                     var frames = 0L
-                    track.play()
-                    for (samples in chunks) {
-                        if (frames == 0L) Log.i(TAG, "読み上げ: 最初の音まで ${(System.nanoTime() - start) / 1_000_000}ms")
-                        track.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
-                        frames += samples.size
+                    try {
+                        track.play()
+                        for (samples in chunks) {
+                            if (frames == 0L) Log.i(TAG, "読み上げ: 最初の音まで ${(System.nanoTime() - start) / 1_000_000}ms")
+                            // 1文をまとめて書くと、書き終わる（ほぼ鳴り終わる）まで戻らず、止めても鳴り続けて
+                            // 次の読み上げと重なった（2026-11-08、実機）。短く区切って書き、区切りごとに止めるかを見る
+                            var offset = 0
+                            while (offset < samples.size) {
+                                if (!isActive) return@launch
+                                val n = minOf(WRITE_FRAMES, samples.size - offset)
+                                track.write(samples, offset, n, AudioTrack.WRITE_BLOCKING)
+                                offset += n
+                                frames += n
+                            }
+                        }
+                        // 書き終えた分が鳴り終わるまで待つ
+                        while (isActive && track.playbackHeadPosition < frames) delay(30)
+                    } finally {
+                        // 止めたときは、書いてある分も捨ててすぐ黙らせる。音を作り終えるのは待たない
+                        track.pause()
+                        track.flush()
+                        if (!isActive) Log.i(TAG, "読み上げ: 途中で止めました（${(System.nanoTime() - start) / 1_000_000}ms）")
                     }
-                    // 書き終えた分が鳴り終わるまで待つ
-                    while (isActive && track.playbackHeadPosition < frames) delay(30)
                 }
                 try {
                     for (sentence in sentences(text)) {
@@ -108,10 +123,6 @@ class SupertonicSpeaker(
                 }
             }
         } finally {
-            if (track.playState == AudioTrack.PLAYSTATE_PLAYING) {
-                track.pause()
-                track.flush()
-            }
             track.release()
         }
     }
@@ -168,6 +179,9 @@ class SupertonicSpeaker(
          */
         val STEPS_RANGE = 3..16
         const val DEFAULT_STEPS = 8
+
+        /** 一度に `AudioTrack` へ書く長さ（44.1kHzで約46ミリ秒）。止めてから黙るまでの最大の遅れになる。 */
+        private const val WRITE_FRAMES = 2048
 
         /** 2から4で約1割速くなり、6にしても変わらない（2026-11-08、実機）。翻訳と同時には走らないので4。 */
         private const val NUM_THREADS = 4
