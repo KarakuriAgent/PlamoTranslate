@@ -12,6 +12,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +28,8 @@ import app.plamotranslate.llm.Language
 import app.plamotranslate.models.DownloadState
 import app.plamotranslate.models.ModelCatalog
 import app.plamotranslate.models.ModelDownloads
+import app.plamotranslate.tts.SupertonicSpeaker
+import kotlin.math.roundToInt
 
 /*
  * 読み上げの設定（2026-11-08、作者の要望「読み上げもモデルを切り替えできたら嬉しい」）。
@@ -46,6 +49,7 @@ fun SpeechCard() {
     var engine by remember { mutableStateOf(ReadAloud.engine(context)) }
     var voice by remember { mutableStateOf(ReadAloud.voice(context)) }
     var speed by remember { mutableStateOf(ReadAloud.speed(context)) }
+    var steps by remember { mutableStateOf(ReadAloud.steps(context)) }
     var refresh by remember { mutableStateOf(0) }
     val present = remember(refresh, download) { ModelCatalog.speechPresent(context) }
     // 声の数はモデルを読み込むと分かる。Supertonic 3を選んでいてモデルがあれば、開いたときに読み込む
@@ -102,6 +106,20 @@ fun SpeechCard() {
                 }
                 extraError?.takeIf { ModelDownloads.lastExtra == files }?.let {
                     Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                if (present) {
+                    Text("音質（段数 $steps）", style = MaterialTheme.typography.titleSmall)
+                    Slider(
+                        value = steps.toFloat(),
+                        onValueChange = { steps = it.roundToInt() },
+                        onValueChangeFinished = { ReadAloud.save(context, steps = steps) },
+                        valueRange = SupertonicSpeaker.STEPS_RANGE.first.toFloat()..SupertonicSpeaker.STEPS_RANGE.last.toFloat(),
+                        steps = SupertonicSpeaker.STEPS_RANGE.last - SupertonicSpeaker.STEPS_RANGE.first - 1,
+                    )
+                    Text(
+                        "増やすと話している最中のザラつきが減り、読み始めるまでが長くなります（既定 ${SupertonicSpeaker.DEFAULT_STEPS}）。",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
                 if (present && voices > 0) {
                     Text("声", style = MaterialTheme.typography.titleSmall)

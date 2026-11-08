@@ -37,6 +37,8 @@ class SupertonicSpeaker(
     var voice: Int = 0,
     /** 読む速さ（1が標準）。 */
     var speed: Float = 1f,
+    /** 音を作る段数（[STEPS_RANGE]）。増やすと話している最中のザラつきが減り、そのぶん遅くなる。 */
+    var steps: Int = DEFAULT_STEPS,
 ) : Speaker {
     private var tts: OfflineTts? = null
 
@@ -67,7 +69,7 @@ class SupertonicSpeaker(
         val config = GenerationConfig(
             sid = voice.coerceIn(0, maxOf(0, engine.numSpeakers() - 1)),
             speed = speed,
-            numSteps = NUM_STEPS,
+            numSteps = steps.coerceIn(STEPS_RANGE),
             extra = mapOf("lang" to lang.substringBefore('-')),
         )
         // 作った音を鳴らす側へ渡す。鳴らす側は書き込みで待つので、作る側（このスレッド）は止めない
@@ -125,7 +127,7 @@ class SupertonicSpeaker(
                     durationPredictor = File(dir, "duration_predictor.int8.onnx").path,
                     textEncoder = File(dir, "text_encoder.int8.onnx").path,
                     vectorEstimator = File(dir, "vector_estimator.int8.onnx").path,
-                    vocoder = File(dir, "vocoder.int8.onnx").path,
+                    vocoder = File(dir, "vocoder.onnx").path,
                     ttsJson = File(dir, "tts.json").path,
                     unicodeIndexer = File(dir, "unicode_indexer.bin").path,
                     voiceStyle = File(dir, "voice.bin").path,
@@ -153,17 +155,19 @@ class SupertonicSpeaker(
             "id", "it", "lt", "lv", "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "tr", "uk", "vi",
         )
 
-        /** [dir] に置くファイル。 */
+        /** [dir] に置くファイル。vocoderだけ公式のfp32版（int8版はザラつきが乗る。docs/04「読み上げ」）。 */
         val FILES = listOf(
             "duration_predictor.int8.onnx", "text_encoder.int8.onnx", "vector_estimator.int8.onnx",
-            "vocoder.int8.onnx", "tts.json", "unicode_indexer.bin", "voice.bin",
+            "vocoder.onnx", "tts.json", "unicode_indexer.bin", "voice.bin",
         )
 
         /**
-         * 音を作る段数。減らすと速く、粗くなる。REDMAGIC 11 Proで4.2秒分の日本語を作る時間は
-         * 3段0.95秒・5段1.5秒・8段2.4秒（2026-11-08、docs/04「読み上げ」）。待ち時間と質の間をとって5。
+         * 音を作る段数の範囲と既定。作る時間は段数にほぼ比例する（REDMAGIC 11 Proで10秒分の日本語が
+         * 5段3.6秒・8段6.1秒・16段9.9秒）。ザラつきは段数を増やすほど減る（2026-11-08、docs/04「読み上げ」）。
+         * 作者が5段ではザラつくと言ったので、既定は8。設定の画面のスライダーで変える。
          */
-        private const val NUM_STEPS = 5
+        val STEPS_RANGE = 3..16
+        const val DEFAULT_STEPS = 8
 
         /** 2から4で約1割速くなり、6にしても変わらない（2026-11-08、実機）。翻訳と同時には走らないので4。 */
         private const val NUM_THREADS = 4

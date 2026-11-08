@@ -93,11 +93,26 @@ object ReadAloud {
 
     fun speed(context: Context): Float = prefs(context).getFloat("speed", 1f)
 
-    fun save(context: Context, engine: SpeechEngine = engine(context), voice: Int = voice(context), speed: Float = speed(context)) {
-        prefs(context).edit().putString("engine", engine.name).putInt("voice", voice).putFloat("speed", speed).apply()
+    /** Supertonic 3の音を作る段数（設定の画面のスライダー）。 */
+    fun steps(context: Context): Int = prefs(context).getInt("steps", SupertonicSpeaker.DEFAULT_STEPS)
+
+    fun save(
+        context: Context,
+        engine: SpeechEngine = engine(context),
+        voice: Int = voice(context),
+        speed: Float = speed(context),
+        steps: Int = steps(context),
+    ) {
+        prefs(context).edit()
+            .putString("engine", engine.name)
+            .putInt("voice", voice)
+            .putFloat("speed", speed)
+            .putInt("steps", steps)
+            .apply()
         supertonic?.let {
             it.voice = voice
             it.speed = speed
+            it.steps = steps
         }
     }
 
@@ -115,7 +130,7 @@ object ReadAloud {
     }
 
     private fun supertonic(app: Context): SupertonicSpeaker =
-        supertonic ?: SupertonicSpeaker(ModelCatalog.speechDir(app), voice(app), speed(app)).also { supertonic = it }
+        supertonic ?: SupertonicSpeaker(ModelCatalog.speechDir(app), voice(app), speed(app), steps(app)).also { supertonic = it }
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }
