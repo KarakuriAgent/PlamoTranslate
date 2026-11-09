@@ -9,6 +9,9 @@ import app.plamotranslate.ocr.OcrLanguage
  * 言語を足すときは、OcrLanguage（core-ocr）と Recognizers（使う認識器）と、ここの3つの表をそろえる。
  */
 
+/** 画面翻訳の訳す先。今は日本語に固定する。 */
+internal val SCREEN_TARGET = Language.JA
+
 /** 長押しメニューに出す名前。 */
 internal val OcrLanguage.menuName: String
     get() = when (this) {

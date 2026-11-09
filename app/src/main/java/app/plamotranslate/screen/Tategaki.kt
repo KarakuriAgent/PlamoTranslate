@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.text.TextPaint
 import android.view.View
+import app.plamotranslate.overlay.spToPx
 
 /**
  * 日本語を縦書きで描く（2026-11-05、作者の要望「縦書きの原文には縦書きの日本語で」）。

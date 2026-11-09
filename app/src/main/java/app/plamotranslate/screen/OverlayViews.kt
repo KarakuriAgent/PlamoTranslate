@@ -15,17 +15,15 @@ import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import app.plamotranslate.overlay.OverlaySlot
+import app.plamotranslate.overlay.dp
 import kotlin.math.abs
 
-/** 文字の大きさ（sp）を画素数にする。端末の文字の大きさの設定に従う。 */
-internal fun Context.spToPx(value: Float): Float =
-    TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, value, resources.displayMetrics)
-
-internal fun Context.dp(value: Int): Int =
-    TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics).toInt()
-
-/** 訳の枠1つ：撮影画像の座標での位置、縦書きか、元の画面から読み取った背景色と文字色。 */
-data class OverlaySlot(val rect: Rect, val vertical: Boolean, val colors: BoxColors = BoxColors.DEFAULT)
+/** 状態バーの高さ（px）。撮影画像の座標は画面の左上が原点なので、この高さより上は状態バー。 */
+internal fun Context.statusBarHeight(): Int {
+    val id = resources.getIdentifier("status_bar_height", "dimen", "android")
+    return if (id > 0) resources.getDimensionPixelSize(id) else 0
+}
 
 /** 訳の枠の見た目。画面の重ね表示と評価の描画（BenchActivity）でそろえる。 */
 internal object OverlayStyle {

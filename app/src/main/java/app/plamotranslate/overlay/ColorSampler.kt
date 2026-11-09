@@ -1,4 +1,4 @@
-package app.plamotranslate.screen
+package app.plamotranslate.overlay
 
 import android.graphics.Bitmap
 import android.graphics.Color

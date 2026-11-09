@@ -18,17 +18,17 @@ import androidx.lifecycle.lifecycleScope
 import androidx.activity.ComponentActivity
 import app.plamotranslate.ocr.MultiScriptOcr
 import app.plamotranslate.ocr.OcrLanguage
-import app.plamotranslate.screen.BatchTranslator
-import app.plamotranslate.screen.OverlaySlot
+import app.plamotranslate.overlay.BatchTranslator
+import app.plamotranslate.overlay.OverlaySlot
+import app.plamotranslate.overlay.dp
+import app.plamotranslate.overlay.selectTargets
+import app.plamotranslate.overlay.spToPx
 import app.plamotranslate.screen.OverlayStyle
 import app.plamotranslate.screen.SCREEN_TARGET
 import app.plamotranslate.screen.ScreenTranslateService
 import app.plamotranslate.screen.Tategaki
 import app.plamotranslate.screen.VerticalTextView
-import app.plamotranslate.screen.selectTargets
 import app.plamotranslate.screen.sourceLanguage
-import app.plamotranslate.screen.spToPx
-import app.plamotranslate.screen.dp
 import app.plamotranslate.screen.statusBarHeight
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -91,7 +91,7 @@ class BenchActivity : ComponentActivity() {
             val t0 = SystemClock.uptimeMillis()
             val blocks = ocr.recognize(bitmap, language)
             val ocrMillis = SystemClock.uptimeMillis() - t0
-            val targets = selectTargets(blocks, bitmap, statusBar)
+            val targets = selectTargets(blocks, bitmap, statusBar, SCREEN_TARGET)
 
             // 画像ごとに新しく作り、前の画像の訳の控えを使わない
             val translator = BatchTranslator(engine, SCREEN_TARGET, language.sourceLanguage)

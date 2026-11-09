@@ -5,7 +5,7 @@ import app.plamotranslate.camera.TextSimilarity.dice
 import app.plamotranslate.camera.TextSimilarity.key
 import app.plamotranslate.camera.TextSimilarity.similar
 import app.plamotranslate.ocr.Geometry
-import app.plamotranslate.screen.BoxColors
+import app.plamotranslate.overlay.BoxColors
 import kotlin.math.abs
 
 /** 1コマで読めた1行（正立した画像の座標）。 */

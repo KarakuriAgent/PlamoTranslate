@@ -10,7 +10,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.view.View
-import app.plamotranslate.screen.spToPx
+import app.plamotranslate.overlay.spToPx
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min

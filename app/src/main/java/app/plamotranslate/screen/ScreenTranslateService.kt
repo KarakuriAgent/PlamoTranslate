@@ -25,6 +25,8 @@ import app.plamotranslate.EngineHolder
 import app.plamotranslate.models.ModelCatalog
 import app.plamotranslate.ocr.MultiScriptOcr
 import app.plamotranslate.ocr.OcrLanguage
+import app.plamotranslate.overlay.BatchTranslator
+import app.plamotranslate.overlay.selectTargets
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -144,7 +146,7 @@ class ScreenTranslateService : Service() {
                 return@launch
             }
             val ocrMillis = SystemClock.uptimeMillis() - t0
-            val targets = selectTargets(blocks, bitmap, statusBarHeight())
+            val targets = selectTargets(blocks, bitmap, statusBarHeight(), SCREEN_TARGET)
             bitmap.recycle()
             if (targets.isEmpty()) {
                 overlay.showStatus("訳す文字が見つかりませんでした（文字認識 ${ocrMillis}ms）")

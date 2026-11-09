@@ -1,4 +1,4 @@
-package app.plamotranslate.screen
+package app.plamotranslate.overlay
 
 import app.plamotranslate.llm.Language
 import app.plamotranslate.llm.TranslationEngine

@@ -1,15 +1,15 @@
-package app.plamotranslate.screen
+package app.plamotranslate.overlay
 
-import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Rect
 import app.plamotranslate.llm.Language
 import app.plamotranslate.ocr.EnglishText
 import app.plamotranslate.ocr.OcrBlock
 import app.plamotranslate.ocr.Script
 import app.plamotranslate.ocr.TextQuality
 
-/** 画面翻訳の訳先。今は日本語に固定する。 */
-internal val SCREEN_TARGET = Language.JA
+/** 訳の枠1つ：撮影画像の座標での位置、縦書きか、元の画面から読み取った背景色と文字色。 */
+data class OverlaySlot(val rect: Rect, val vertical: Boolean, val colors: BoxColors = BoxColors.DEFAULT)
 
 /** 訳す1件：認識したまとまり、訳の枠（位置・縦書き・色）、翻訳に渡す原文。 */
 internal class TranslationTarget(val block: OcrBlock, val slot: OverlaySlot) {
@@ -18,7 +18,8 @@ internal class TranslationTarget(val block: OcrBlock, val slot: OverlaySlot) {
 
 /**
  * 認識結果から訳す対象を選び、訳の枠の色を撮影画像から読み取る。
- * 画面翻訳（[ScreenTranslateService]）と評価（BenchActivity）は、ここを通して同じ処理を測る。
+ * 画面翻訳（ScreenTranslateService）とカメラ翻訳（LiveTranslator）が使い、評価（BenchActivity）もここを通して同じ処理を測る。
+ * [target] は訳す先。仮名やハングルを訳すかは訳す先で変わるので、呼ぶ側が自分の訳す先を渡す。
  *
  * 状態バー（時刻・通信速度など）にかかるまとまりと、訳す必要のないまとまり（[needsTranslation]）は除く。
  * 色を読み取るので、撮影画像を捨てる前に呼ぶ。
@@ -27,16 +28,10 @@ internal fun selectTargets(
     blocks: List<OcrBlock>,
     bitmap: Bitmap,
     statusBarHeight: Int,
-    target: Language = SCREEN_TARGET,
+    target: Language,
 ): List<TranslationTarget> = blocks
     .filter { it.bounds.top >= statusBarHeight && it.needsTranslation(target) }
     .map { TranslationTarget(it, OverlaySlot(it.bounds, it.vertical, ColorSampler.sample(bitmap, it.bounds))) }
-
-/** 状態バーの高さ（px）。撮影画像の座標は画面の左上が原点なので、この高さより上は状態バー。 */
-internal fun Context.statusBarHeight(): Int {
-    val id = resources.getIdentifier("status_bar_height", "dimen", "android")
-    return if (id > 0) resources.getDimensionPixelSize(id) else 0
-}
 
 /**
  * 訳す必要がある文字か。訳先が日本語なら、仮名を含む（日本語の）ブロックと、
