@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.flow.drop
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
@@ -227,6 +228,10 @@ private fun PartnerHalf(state: ConversationUiState, modifier: Modifier) {
 /**
  * 新しい発話が来たら末尾へ送る一覧。作者が読み返すために末尾から離れている間は動かさない
  * （訳が1トークン届くたびに末尾へ戻すと、スクロールの途中で引き戻される）。
+ *
+ * 対面と1画面を切り替えると、この一覧は作り直される。作り直した一覧は末尾（今話している発話）から始める
+ * （作者の指摘「切り替えたタイミングで今話している内容が画面から消える」。以前は先頭から始まり、
+ * 先頭にいることを「読み返し中」と取り違えて末尾へ追わなくなっていた）。
  */
 @Composable
 private fun FollowingList(
@@ -235,15 +240,16 @@ private fun FollowingList(
     reverse: Boolean = false,
     content: LazyListScope.() -> Unit,
 ) {
-    val listState = rememberLazyListState()
+    val count = state.turns.size + if (state.live != null) 1 else 0
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (count - 1).coerceAtLeast(0))
     var follow by remember { mutableStateOf(true) }
     LaunchedEffect(listState) {
-        // スクロールが止まった時点で末尾にいれば、以後も新しい発話を追う
-        snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
+        // スクロールが止まった時点で末尾にいれば、以後も新しい発話を追う。
+        // 作った直後の「止まっている」は、まだ並べる前（先頭）の状態なので見ない
+        snapshotFlow { listState.isScrollInProgress }.drop(1).collect { scrolling ->
             if (!scrolling) follow = !listState.canScrollForward
         }
     }
-    val count = state.turns.size + if (state.live != null) 1 else 0
     LaunchedEffect(count, state.turns.lastOrNull()?.translation?.length, state.live?.text, state.live?.translation) {
         if (follow && count > 0) listState.scrollToEnd(count)
     }
