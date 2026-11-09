@@ -121,9 +121,12 @@ private fun ModelChooser(model: ModelState) {
                     "2Bは使う前に約${large.file.size / 1_000_000}MBをダウンロードします（Wi-Fiでの実行をおすすめします）。",
                     style = MaterialTheme.typography.bodySmall,
                 )
-                OutlinedButton(onClick = {
+                // 一度に取るのは1組だけ。読み上げのモデルを取っている間は押せなくし、理由を出す
+                val busy = state is DownloadState.Running
+                OutlinedButton(enabled = !busy, onClick = {
                     ModelDownloads.start(context, ModelBundle.LARGE_TRANSLATION, onCompleted = { refresh++ })
                 }) { Text("2Bをダウンロード") }
+                if (busy) Text("ほかのモデルのダウンロードが終わると押せます", style = MaterialTheme.typography.bodySmall)
             }
             failure?.takeIf { it.bundle == ModelBundle.LARGE_TRANSLATION }?.let {
                 Text(it.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

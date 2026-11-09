@@ -102,9 +102,12 @@ fun SpeechCard() {
                             "ダウンロードするまでは端末の読み上げで読みます。",
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    OutlinedButton(onClick = {
+                    // 一度に取るのは1組だけ。2Bを取っている間は押せなくし、理由を出す
+                    val busy = state is DownloadState.Running
+                    OutlinedButton(enabled = !busy, onClick = {
                         ModelDownloads.start(context, ModelBundle.SPEECH, onCompleted = { refresh++ })
                     }) { Text("Supertonic 3をダウンロード") }
+                    if (busy) Text("ほかのモデルのダウンロードが終わると押せます", style = MaterialTheme.typography.bodySmall)
                 }
                 failure?.takeIf { it.bundle == ModelBundle.SPEECH }?.let {
                     Text(it.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
