@@ -53,7 +53,45 @@ class TranslationPreferences(context: Context) {
             .apply()
     }
 
+    // ---- GPUで落ちたときの切り替え（[GpuGuard]）。設定ではなく、起動をまたいで残す状態 ----
+
+    /**
+     * GPUで読み込んでいるプロセスのID。0なら読み込み中ではない。
+     * 書いた直後にプロセスごと終わり得るので、apply ではなく commit ですぐに書く。
+     */
+    var gpuLoadingPid: Int
+        get() = translation.getInt(KEY_GPU_LOADING_PID, 0)
+        set(value) {
+            translation.edit().putInt(KEY_GPU_LOADING_PID, value).commit()
+        }
+
+    /** 異常終了でない中断（強制停止・メモリ不足など）が、GPUでの読み込み中に何回続いたか。 */
+    var gpuInterruptions: Int
+        get() = translation.getInt(KEY_GPU_INTERRUPTIONS, 0)
+        set(value) {
+            translation.edit().putInt(KEY_GPU_INTERRUPTIONS, value).commit()
+        }
+
+    /** GPUを外した記録。外していなければ null。 */
+    var gpuDisabled: GpuDisabled?
+        get() {
+            val reason = translation.getString(KEY_GPU_DISABLED_REASON, null) ?: return null
+            return GpuDisabled(reason, translation.getString(KEY_GPU_DISABLED_BUILD, null).orEmpty(), translation.getLong(KEY_GPU_DISABLED_AT, 0))
+        }
+        set(value) {
+            translation.edit()
+                .putString(KEY_GPU_DISABLED_REASON, value?.reason)
+                .putString(KEY_GPU_DISABLED_BUILD, value?.build)
+                .putLong(KEY_GPU_DISABLED_AT, value?.at ?: 0)
+                .commit()
+        }
+
     private companion object {
         const val KEY_MODEL = "model"
+        const val KEY_GPU_LOADING_PID = "gpu_loading_pid"
+        const val KEY_GPU_INTERRUPTIONS = "gpu_interruptions"
+        const val KEY_GPU_DISABLED_REASON = "gpu_disabled_reason"
+        const val KEY_GPU_DISABLED_BUILD = "gpu_disabled_build"
+        const val KEY_GPU_DISABLED_AT = "gpu_disabled_at"
     }
 }

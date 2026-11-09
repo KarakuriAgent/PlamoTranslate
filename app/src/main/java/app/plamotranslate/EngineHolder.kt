@@ -86,14 +86,19 @@ object EngineHolder {
         android.system.Os.setenv("GGML_OPENCL_KERNEL_CACHE_DIR", clCache.path, true)
         val libDir = app.applicationInfo.nativeLibraryDir
         val preferences = TranslationPreferences(app)
-        val gpu = preferGpu(preferences.cpuOnly)
+        // 前回GPUでの読み込み中にアプリが終わっていたら、ここでCPUに切り替える（GpuGuard）
+        val gpuAllowed = GpuGuard.allowGpu(app)
+        val gpu = preferGpu(preferences.cpuOnly) && gpuAllowed
         val cpu = preferences.cpuOptions
         scope.launch {
             val start = System.nanoTime()
+            // 読み込みと初回の推論（warmUp）の間にGPUのカーネルを組み立てる。ここで落ちたら、次の起動でCPUにする
+            if (gpu) GpuGuard.beginGpuLoad(app)
             _state.value = runCatching { TranslationEngine.load(file, libDir, gpu, cpu = cpu).also { warmUp(it) } }.fold(
                 onSuccess = { ModelState.Ready(it, model, (System.nanoTime() - start) / 1_000_000) },
                 onFailure = { ModelState.Failed(it.message ?: it.toString()) },
             )
+            if (gpu) GpuGuard.endGpuLoad(app)
             loading = false
         }
     }
@@ -104,7 +109,8 @@ object EngineHolder {
     /**
      * GPU（OpenCL）を使うか。llama.cppのOpenCLはQualcomm（Snapdragon）のAdrenoに合わせて作られているので、
      * Qualcommのチップの端末だけGPUを使い、ほかはCPUで動かす（2026-11-06、APKを配布するため）。
-     * GPUでの読み込みに失敗したときは [TranslationEngine.load] がCPUでやり直す。
+     * GPUでの読み込みに失敗したときは [TranslationEngine.load] がCPUでやり直す。失敗が返らずにプロセスごと終わったときは、
+     * 次の起動で [GpuGuard] がCPUに切り替える。
      * 設定の「CPUの詳細」で「CPUだけ」を選ぶと、Snapdragonの端末でもCPUで動く（CPUの速さを確かめるため）。
      */
     private fun preferGpu(cpuOnly: Boolean): Boolean {

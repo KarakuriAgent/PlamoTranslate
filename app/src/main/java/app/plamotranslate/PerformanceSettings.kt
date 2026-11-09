@@ -52,6 +52,7 @@ fun PerformanceCard(model: ModelState) {
     var result by remember { mutableStateOf<String?>(null) }
     var measuring by remember { mutableStateOf(false) }
     val busy = model is ModelState.Loading || measuring
+    val gpuDisabled = remember { GpuGuard.disabledNote(context) }
 
     fun apply(next: CpuOptions = options, nextCpuOnly: Boolean = cpuOnly) {
         options = next
@@ -97,6 +98,19 @@ fun PerformanceCard(model: ModelState) {
                 TextButton(enabled = !busy, onClick = { apply(CpuOptions(), false) }) { Text("既定に戻す") }
             }
             result?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            gpuDisabled?.let { note ->
+                Text(
+                    "GPUで読み込む途中でアプリが終わったため、この端末ではCPUで動かしています（$note）。" +
+                        "端末のGPUのドライバーがllama.cppのGPUの処理に合わないと起きます。" +
+                        "読み込み中に強制停止しただけなら、もう一度試してください。",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedButton(enabled = !busy, onClick = {
+                    GpuGuard.retry(context)
+                    restartApp(context)
+                }) { Text("GPUをもう一度試す（起動し直す）") }
+            }
 
             Text("スレッド数", style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -169,6 +183,8 @@ private fun SettingSwitch(title: String, note: String, checked: Boolean, enabled
 
 /** トップ画面を開き直してからプロセスを終える。計算部分のライブラリは起動ごとに1回だけ読み込むため。 */
 private fun restartApp(context: android.content.Context) {
+    // 読み込みの途中で起動し直しても、GPUで落ちたとみなさない
+    GpuGuard.forgetPending(context)
     val intent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return
     intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
     context.startActivity(intent)
