@@ -15,7 +15,6 @@ import app.plamotranslate.ocr.OcrLanguage
 import app.plamotranslate.overlay.BatchTranslator
 import app.plamotranslate.overlay.BoxColors
 import app.plamotranslate.overlay.selectTargets
-import app.plamotranslate.screen.SCREEN_TARGET
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -87,8 +86,9 @@ class LiveTranslator(private val context: Context, scope: CoroutineScope) {
             }
         }
 
-    /** 訳す先の言語（2026-11-08、作者の要望で日本語以外も選べるようにした）。変えたら前の言語の訳は捨てる。 */
-    var target: Language = SCREEN_TARGET
+    /** 訳す先の言語（2026-11-08、作者の要望で日本語以外も選べるようにした）。変えたら前の言語の訳は捨てる。
+     * 訳す必要があるかの判定（selectTargets）にも使う。訳す先を日本語以外にすると、日本語の文字も訳す。 */
+    var target: Language = Language.JA
         set(value) {
             if (field != value) {
                 field = value
@@ -160,7 +160,7 @@ class LiveTranslator(private val context: Context, scope: CoroutineScope) {
         val t0 = SystemClock.uptimeMillis()
         val readings = try {
             // カメラでは1文字だけの読み取りを捨てる（韓国語のラベルを中国語の認識器が読み違えた「太」「我」などの雑音が多い）
-            selectTargets(ocr.recognize(upright, recognizers), upright, statusBarHeight = 0, target = SCREEN_TARGET)
+            selectTargets(ocr.recognize(upright, recognizers), upright, statusBarHeight = 0, target = target)
                 .filter { t -> t.sourceText.count { it.isLetter() } >= 2 }
                 .map { Reading(it.block.bounds, it.sourceText, it.slot.colors) }
         } catch (e: Exception) {
