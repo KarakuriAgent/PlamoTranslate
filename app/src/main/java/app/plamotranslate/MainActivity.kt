@@ -49,7 +49,7 @@ import app.plamotranslate.camera.CameraTranslateActivity
 import app.plamotranslate.conversation.ConversationActivity
 import app.plamotranslate.models.DownloadState
 import app.plamotranslate.models.ModelDownloads
-import app.plamotranslate.models.TranslationModel
+import app.plamotranslate.models.ModelBundle
 import app.plamotranslate.screen.ScreenTranslateService
 
 
@@ -236,10 +236,10 @@ private fun Tile(
     }
 }
 
-/** 初回の準備がまだか。設定の画面から2Bを取っている間（Running の中身が2B）は、準備済みとして扱う。 */
+/** 初回の準備がまだか。設定の画面から2Bを取っている間は、準備済みとして扱う。 */
 private fun DownloadState.needsSetup(): Boolean = when (this) {
     DownloadState.Completed -> false
-    is DownloadState.Running -> current != TranslationModel.LARGE.file
+    is DownloadState.Running -> bundle != ModelBundle.LARGE_TRANSLATION
     is DownloadState.Idle -> missing.isNotEmpty()
     is DownloadState.Failed -> missing.isNotEmpty()
 }
@@ -272,7 +272,7 @@ private fun SetupScreen(state: DownloadState, onCompleted: () -> Unit) {
                             "Wi-Fiでの実行をおすすめします。ダウンロードの後は、通信せずに端末の中だけで動きます。",
                     )
                     if (state is DownloadState.Failed) Text(state.message, color = MaterialTheme.colorScheme.error)
-                    Button(onClick = { ModelDownloads.start(context, onCompleted) }, enabled = missing.isNotEmpty()) {
+                    Button(onClick = { ModelDownloads.start(context, ModelBundle.REQUIRED, onCompleted) }, enabled = missing.isNotEmpty()) {
                         Text(if (state is DownloadState.Failed) "続きからダウンロード" else "ダウンロード")
                     }
                     LicenseAgreementNote()

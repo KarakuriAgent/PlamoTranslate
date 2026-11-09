@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.plamotranslate.llm.Language
 import app.plamotranslate.models.DownloadState
+import app.plamotranslate.models.ModelBundle
 import app.plamotranslate.models.ModelCatalog
 import app.plamotranslate.models.ModelDownloads
 import app.plamotranslate.tts.SupertonicSpeaker
@@ -44,7 +45,7 @@ private const val SAMPLE_KEY = "settings-sample"
 fun SpeechCard() {
     val context = LocalContext.current
     val download by ModelDownloads.state.collectAsStateWithLifecycle()
-    val extraError by ModelDownloads.extraError.collectAsStateWithLifecycle()
+    val failure by ModelDownloads.failure.collectAsStateWithLifecycle()
     val speaking by ReadAloud.speaking.collectAsStateWithLifecycle()
     val preferences = remember { SpeechPreferences(context) }
     var engine by remember { mutableStateOf(preferences.engine) }
@@ -85,9 +86,9 @@ fun SpeechCard() {
             }
 
             if (engine == SpeechEngine.SUPERTONIC) {
-                val files = ModelCatalog.speech
+                val files = ModelBundle.SPEECH.files
                 val state = download
-                if (state is DownloadState.Running && state.current in files) {
+                if (state is DownloadState.Running && state.bundle == ModelBundle.SPEECH) {
                     val progress = if (state.total > 0) state.done.toFloat() / state.total else 0f
                     LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                     Text(
@@ -102,11 +103,11 @@ fun SpeechCard() {
                         style = MaterialTheme.typography.bodySmall,
                     )
                     OutlinedButton(onClick = {
-                        ModelDownloads.start(context, onCompleted = { refresh++ }, extra = files)
+                        ModelDownloads.start(context, ModelBundle.SPEECH, onCompleted = { refresh++ })
                     }) { Text("Supertonic 3をダウンロード") }
                 }
-                extraError?.takeIf { ModelDownloads.lastExtra == files }?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                failure?.takeIf { it.bundle == ModelBundle.SPEECH }?.let {
+                    Text(it.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
                 if (present) {
                     Text("音質（段数 $steps）", style = MaterialTheme.typography.titleSmall)

@@ -59,6 +59,35 @@ enum class TranslationModel(val label: String, val note: String, val file: Model
     fun isPresent(context: Context): Boolean = file.file(context).length() == file.size
 }
 
+/**
+ * 一緒にダウンロードするモデルの組（docs/11「4」、2026-11-09）。初回にそろえる組と、設定の画面で選んだときに足す組がある。
+ * 一度に取るのは1組だけ（[ModelDownloads]）。画面は、取っている組・失敗した組をこの型で見分ける。
+ */
+enum class ModelBundle {
+    /** 初回起動時にそろえる（翻訳0.8B・音声認識・漫画用OCR）。そろうまで「モデルの準備」の画面を出す。 */
+    REQUIRED,
+
+    /** 翻訳モデル2B。設定の画面で選んだときに足す。 */
+    LARGE_TRANSLATION,
+
+    /** 読み上げのモデル（Supertonic 3）。設定の画面で「読み上げ」をSupertonic 3にしたときに足す。 */
+    SPEECH,
+    ;
+
+    val files: List<ModelFile>
+        get() = when (this) {
+            REQUIRED -> ModelCatalog.files
+            LARGE_TRANSLATION -> listOf(TranslationModel.LARGE.file)
+            SPEECH -> ModelCatalog.speech
+        }
+
+    /**
+     * まだ置かれていないファイル。大きさだけで見る（毎回ハッシュを計算すると起動が遅くなる）。
+     * ダウンロードしたものは置く前にハッシュを照合している。
+     */
+    fun missing(context: Context): List<ModelFile> = files.filter { it.file(context).length() != it.size }
+}
+
 object ModelCatalog {
     private const val HF = "https://huggingface.co"
     private const val SENSE_VOICE = "$HF/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/2365baeacb507f821a0c8120fcee3d484dba7a07"
@@ -136,7 +165,7 @@ object ModelCatalog {
 
     fun speechDir(context: Context): File = File(modelsDir(context), SPEECH_DIR)
 
-    fun speechPresent(context: Context): Boolean = speech.all { it.file(context).length() == it.size }
+    fun speechPresent(context: Context): Boolean = ModelBundle.SPEECH.missing(context).isEmpty()
 
     fun modelsDir(context: Context): File = File(context.getExternalFilesDir(null), "models")
 
@@ -145,12 +174,6 @@ object ModelCatalog {
 
     /** 漫画用OCRの置き場。無ければML Kitだけで動く。 */
     fun mangaDir(context: Context): File = File(modelsDir(context), "ocr/manga")
-
-    /**
-     * まだ置かれていないファイル。大きさだけで見る（毎回ハッシュを計算すると起動が遅くなる）。
-     * ダウンロードしたものは置く前にハッシュを照合している。
-     */
-    fun missing(context: Context): List<ModelFile> = files.filter { it.file(context).length() != it.size }
 
     val totalSize: Long get() = files.sumOf { it.size }
 }

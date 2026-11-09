@@ -26,13 +26,17 @@ sealed interface DownloadState {
     /** 何もしていない。[missing] はまだ置かれていないファイル。 */
     data class Idle(val missing: List<ModelFile>) : DownloadState
 
-    /** ダウンロード中。[done] は全体で受け取ったバイト数、[total] は残っていたファイルの合計。 */
-    data class Running(val current: ModelFile, val done: Long, val total: Long) : DownloadState
+    /** [bundle] をダウンロード中。[done] は全体で受け取ったバイト数、[total] は残っていたファイルの合計。 */
+    data class Running(val bundle: ModelBundle, val current: ModelFile, val done: Long, val total: Long) : DownloadState
 
+    /** 初回にそろえる組（[ModelBundle.REQUIRED]）が失敗した。[missing] はまだ置かれていないファイル。 */
     data class Failed(val message: String, val missing: List<ModelFile>) : DownloadState
 
     data object Completed : DownloadState
 }
+
+/** 設定の画面で足す組（2B・読み上げ）のダウンロードの失敗。その組の欄に出す。 */
+data class BundleFailure(val bundle: ModelBundle, val message: String)
 
 /**
  * 初回起動時にモデルをダウンロードする（2026-11-06、APKを配布するため）。アプリ全体で1つだけ動かす。
@@ -49,30 +53,25 @@ object ModelDownloads {
     /** 置かれていないファイルを数え直す。ダウンロード中なら何もしない。 */
     fun refresh(context: Context) {
         if (job?.isActive == true) return
-        val missing = ModelCatalog.missing(context)
+        val missing = ModelBundle.REQUIRED.missing(context)
         _state.value = if (missing.isEmpty()) DownloadState.Completed else DownloadState.Idle(missing)
     }
 
-    /**
-     * ダウンロードを始める。[extra] を渡すと、初回にそろえるファイルの代わりにそれを取る
-     * （2Bの翻訳モデル、読み上げのモデルを選んだとき）。置き済みのファイルは飛ばす。
-     */
-    fun start(context: Context, onCompleted: () -> Unit, extra: List<ModelFile>? = null) {
+    /** [bundle] のダウンロードを始める。置き済みのファイルは飛ばす。ほかの組を取っている間は何もしない。 */
+    fun start(context: Context, bundle: ModelBundle, onCompleted: () -> Unit) {
         if (job?.isActive == true) return
         val app = context.applicationContext
-        if (extra != null) {
-            extraError.value = null
-            lastExtra = extra
-        }
+        val extra = bundle != ModelBundle.REQUIRED
+        if (extra) _failure.value = null
         job = scope.launch {
-            val missing = extra?.filter { it.file(app).length() != it.size } ?: ModelCatalog.missing(app)
+            val missing = bundle.missing(app)
             val total = missing.sumOf { it.size }
             var doneBefore = 0L
             try {
                 for (model in missing) {
-                    _state.value = DownloadState.Running(model, doneBefore, total)
+                    _state.value = DownloadState.Running(bundle, model, doneBefore, total)
                     download(model, model.file(app)) { got ->
-                        _state.update { DownloadState.Running(model, doneBefore + got, total) }
+                        _state.update { DownloadState.Running(bundle, model, doneBefore + got, total) }
                     }
                     doneBefore += model.size
                 }
@@ -83,11 +82,12 @@ object ModelDownloads {
                 throw e
             } catch (e: Exception) {
                 Log.w(TAG, "モデルのダウンロードに失敗しました", e)
-                val required = ModelCatalog.missing(app)
-                // 初回のファイルがそろっていれば、追加のダウンロードの失敗は「モデルの準備」の欄には出さない
-                _state.value = if (extra != null && required.isEmpty()) DownloadState.Completed
-                else DownloadState.Failed(e.message ?: e.toString(), required)
-                if (extra != null) extraError.value = e.message ?: e.toString()
+                val message = e.message ?: e.toString()
+                val required = ModelBundle.REQUIRED.missing(app)
+                // 初回のファイルがそろっていれば、足す組の失敗は「モデルの準備」の欄には出さない
+                _state.value = if (extra && required.isEmpty()) DownloadState.Completed
+                else DownloadState.Failed(message, required)
+                if (extra) _failure.value = BundleFailure(bundle, message)
             }
         }
     }
@@ -96,16 +96,13 @@ object ModelDownloads {
         job?.cancel()
     }
 
-    /** 追加のダウンロード（2Bの翻訳モデル、読み上げのモデル）の失敗。設定の画面のその欄に出す。 */
-    val extraError = MutableStateFlow<String?>(null)
+    private val _failure = MutableStateFlow<BundleFailure?>(null)
 
-    /** 最後に始めた追加のダウンロード。[extraError] をどの欄に出すかを決める。 */
-    @Volatile
-    var lastExtra: List<ModelFile>? = null
-        private set
+    /** 足す組（2B・読み上げ）の最後の失敗。次に足す組のどれかを始めると消える。 */
+    val failure: StateFlow<BundleFailure?> = _failure.asStateFlow()
 
     private fun refreshAfter(app: Context) {
-        val missing = ModelCatalog.missing(app)
+        val missing = ModelBundle.REQUIRED.missing(app)
         _state.value = if (missing.isEmpty()) DownloadState.Completed else DownloadState.Idle(missing)
     }
 

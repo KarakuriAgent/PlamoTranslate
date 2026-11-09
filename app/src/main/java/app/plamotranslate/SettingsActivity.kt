@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.plamotranslate.models.DownloadState
+import app.plamotranslate.models.ModelBundle
 import app.plamotranslate.models.ModelDownloads
 import app.plamotranslate.models.TranslationModel
 
@@ -84,7 +85,7 @@ private fun SettingsScreen(onBack: () -> Unit) {
 private fun ModelChooser(model: ModelState) {
     val context = LocalContext.current
     val download by ModelDownloads.state.collectAsStateWithLifecycle()
-    val extraError by ModelDownloads.extraError.collectAsStateWithLifecycle()
+    val failure by ModelDownloads.failure.collectAsStateWithLifecycle()
     val current = (model as? ModelState.Ready)?.model ?: EngineHolder.selected(context)
     var refresh by remember { mutableStateOf(0) }
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -107,7 +108,7 @@ private fun ModelChooser(model: ModelState) {
             val large = TranslationModel.LARGE
             val largePresent = remember(refresh, download) { large.isPresent(context) }
             val state = download
-            if (state is DownloadState.Running && state.current == large.file) {
+            if (state is DownloadState.Running && state.bundle == ModelBundle.LARGE_TRANSLATION) {
                 val progress = if (state.total > 0) state.done.toFloat() / state.total else 0f
                 LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                 Text(
@@ -121,10 +122,12 @@ private fun ModelChooser(model: ModelState) {
                     style = MaterialTheme.typography.bodySmall,
                 )
                 OutlinedButton(onClick = {
-                    ModelDownloads.start(context, onCompleted = { refresh++ }, extra = listOf(large.file))
+                    ModelDownloads.start(context, ModelBundle.LARGE_TRANSLATION, onCompleted = { refresh++ })
                 }) { Text("2Bをダウンロード") }
             }
-            extraError?.takeIf { ModelDownloads.lastExtra == listOf(large.file) }?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            failure?.takeIf { it.bundle == ModelBundle.LARGE_TRANSLATION }?.let {
+                Text(it.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }
