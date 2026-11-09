@@ -81,8 +81,7 @@ class CameraTranslateActivity : ComponentActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var analysisExecutor: ExecutorService
     private val busy = AtomicBoolean(false)
-    private val sourcePreference by lazy { CameraSourcePreference(this) }
-    private val targetPreference by lazy { CameraTargetPreference(this) }
+    private val preferences by lazy { CameraPreferences(this) }
     private var camera: Camera? = null
 
     /**
@@ -110,7 +109,6 @@ class CameraTranslateActivity : ComponentActivity() {
 
     /** 表のモード（1行ずつ訳す）か。文章のモードは行を段落にまとめて訳す。選んだ方を次も使う。 */
     private var tableMode by mutableStateOf(false)
-    private val prefs by lazy { getSharedPreferences("camera_translate", MODE_PRIVATE) }
 
     private val cameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) startCamera() else {
@@ -124,11 +122,11 @@ class CameraTranslateActivity : ComponentActivity() {
         enableEdgeToEdge()
         EngineHolder.ensureLoaded(applicationContext)
         translator = LiveTranslator(applicationContext, lifecycleScope)
-        source = sourcePreference.value
+        source = preferences.source
         translator.source = source
-        target = targetPreference.value
+        target = preferences.target
         translator.target = target
-        tableMode = prefs.getBoolean("table", false)
+        tableMode = preferences.tableMode
         translator.groupParagraphs = !tableMode
         analysisExecutor = Executors.newSingleThreadExecutor()
         previewView = PreviewView(this).apply { scaleType = PreviewView.ScaleType.FILL_CENTER }
@@ -198,19 +196,19 @@ class CameraTranslateActivity : ComponentActivity() {
 
     private fun chooseTableMode(table: Boolean) {
         tableMode = table
-        prefs.edit().putBoolean("table", table).apply()
+        preferences.tableMode = table
         translator.groupParagraphs = !table
     }
 
     private fun chooseSource(lang: Language?) {
         source = lang
-        sourcePreference.value = lang
+        preferences.source = lang
         translator.source = lang
     }
 
     private fun chooseTarget(lang: Language) {
         target = lang
-        targetPreference.value = lang
+        preferences.target = lang
         translator.target = lang
     }
 

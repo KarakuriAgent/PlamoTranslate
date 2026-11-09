@@ -54,7 +54,7 @@ class ScreenTranslateService : Service() {
     private var button: FloatingButton? = null
     private var overlay: TranslationOverlay? = null
     private var menu: LanguageMenu? = null
-    private val languagePreference by lazy { LanguagePreference(this) }
+    private val preferences by lazy { ScreenPreferences(this) }
     private val ocr by lazy { MultiScriptOcr(ModelCatalog.mangaDir(this)) }
     private var job: Job? = null
     private var batchTranslator: BatchTranslator? = null
@@ -92,7 +92,7 @@ class ScreenTranslateService : Service() {
         overlay = TranslationOverlay(this, wm)
         menu = LanguageMenu(this, wm)
         button = FloatingButton(this, wm, onTap = ::translateScreen, onLongPress = ::showLanguageMenu).also {
-            it.setLabel(languagePreference.value.buttonLabel)
+            it.setLabel(preferences.language.buttonLabel)
             it.show()
         }
         EngineHolder.ensureLoaded(this)
@@ -106,12 +106,12 @@ class ScreenTranslateService : Service() {
         val languages = OcrLanguage.entries
         val items = languages.map { lang ->
             lang.menuName to {
-                languagePreference.value = lang
+                preferences.language = lang
                 button?.setLabel(lang.buttonLabel)
                 Unit
             }
         } + ("画面翻訳を終了" to { stopSelf() })
-        menu?.show(x, y, items, selected = languages.indexOf(languagePreference.value))
+        menu?.show(x, y, items, selected = languages.indexOf(preferences.language))
     }
 
     private fun translateScreen() {
@@ -120,7 +120,7 @@ class ScreenTranslateService : Service() {
         job = scope.launch {
             val overlay = overlay ?: return@launch
             val capturer = capturer ?: return@launch
-            val language = languagePreference.value
+            val language = preferences.language
 
             // 自分のボタンと前の訳が写らないよう、消してから撮る
             val hiddenAt = SystemClock.uptimeMillis()

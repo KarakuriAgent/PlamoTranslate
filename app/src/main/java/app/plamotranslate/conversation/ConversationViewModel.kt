@@ -2,7 +2,6 @@ package app.plamotranslate.conversation
 
 import android.Manifest
 import android.app.Application
-import android.content.Context
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.lifecycle.AndroidViewModel
@@ -102,7 +101,7 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
     private val router = LanguageRouter()
 
     /** 表示モードと自分の言語は次に開いたときも同じにする。init より前に置く（init で読む）。 */
-    private val prefs = app.getSharedPreferences("conversation", Context.MODE_PRIVATE)
+    private val preferences = ConversationPreferences(app)
 
     private var asr: AsrEngine? = null
     private var listenJob: Job? = null
@@ -125,9 +124,8 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
     private var partialJob: Job? = null
 
     init {
-        val saved = prefs.getString(KEY_VIEW_MODE, null)
-        ViewMode.entries.firstOrNull { it.name == saved }?.let { mode -> _state.update { it.copy(viewMode = mode) } }
-        Language.ofCode(prefs.getString(KEY_SELF, null).orEmpty())?.takeIf { it in CONVERSATION_LANGUAGES }?.let { self ->
+        preferences.viewMode?.let { mode -> _state.update { it.copy(viewMode = mode) } }
+        preferences.self?.let { self ->
             router.self = self
             _state.update { it.copy(self = self, partner = router.partner) }
         }
@@ -173,7 +171,7 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
     /** 自分の言語を変える。相手が同じ言語なら、相手は自動に戻る。 */
     fun setSelf(self: Language) {
         router.self = self
-        prefs.edit().putString(KEY_SELF, self.code).apply()
+        preferences.self = self
         updateLanguages()
     }
 
@@ -184,7 +182,7 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
     }
 
     fun setViewMode(mode: ViewMode) {
-        prefs.edit().putString(KEY_VIEW_MODE, mode.name).apply()
+        preferences.viewMode = mode
         _state.update { it.copy(viewMode = mode) }
     }
 
@@ -361,8 +359,6 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
 
     companion object {
         private const val TAG = "PlamoTranslate"
-        private const val KEY_VIEW_MODE = "view_mode"
-        private const val KEY_SELF = "self"
 
         /** 途中訳は話している途中の文なので短い。長く生成して確定訳を待たせないよう上限を低くする。 */
         private const val PARTIAL_MAX_TOKENS = 160

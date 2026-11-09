@@ -1,6 +1,5 @@
 package app.plamotranslate.screen
 
-import android.content.Context
 import app.plamotranslate.llm.Language
 import app.plamotranslate.ocr.OcrLanguage
 
@@ -38,20 +37,3 @@ internal val OcrLanguage.sourceLanguage: Language?
         OcrLanguage.KOREAN -> Language.KO
         OcrLanguage.LATIN -> Language.EN
     }
-
-/**
- * 選んだ言語を端末に残し、次に始めたときも引き継ぐ。読めなければ自動。
- * 画面翻訳が使う。カメラ翻訳は言語そのものを選ぶので別に持つ（camera/CameraLanguage.kt）。
- */
-internal class LanguagePreference(context: Context, name: String = PREFS) {
-    private val prefs = context.getSharedPreferences(name, Context.MODE_PRIVATE)
-
-    var value: OcrLanguage
-        get() = OcrLanguage.parse(prefs.getString(KEY, null))
-        set(language) = prefs.edit().putString(KEY, language.name).apply()
-
-    private companion object {
-        const val PREFS = "screen_translate"
-        const val KEY = "language"
-    }
-}

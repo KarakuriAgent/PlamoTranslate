@@ -1,6 +1,5 @@
 package app.plamotranslate.camera
 
-import android.content.Context
 import app.plamotranslate.llm.Language
 import app.plamotranslate.ocr.OcrLanguage
 
@@ -41,44 +40,3 @@ internal val CAMERA_QUICK_SOURCES: List<Language> = listOf(Language.KO, Language
 /** チップに出す短い名前。 */
 internal val Language.chipName: String
     get() = if (this == Language.ZH) "中国語" else label
-
-/**
- * 選んだ原文の言語を端末に残し、次に始めたときも引き継ぐ。null は自動。
- * 以前は認識器の種類（OcrLanguage）を "language" に保存していたので、新しい値が無ければそれを読み替える。
- */
-internal class CameraSourcePreference(context: Context) {
-    private val prefs = context.getSharedPreferences("camera_translate", Context.MODE_PRIVATE)
-
-    var value: Language?
-        get() {
-            val code = prefs.getString(KEY, null) ?: return legacy()
-            return Language.ofCode(code)?.takeIf { it in CAMERA_SOURCES }
-        }
-        set(language) = prefs.edit().putString(KEY, language?.code ?: AUTO).apply()
-
-    private fun legacy(): Language? = when (OcrLanguage.parse(prefs.getString(LEGACY_KEY, null))) {
-        OcrLanguage.AUTO -> null
-        OcrLanguage.CHINESE -> Language.ZH
-        OcrLanguage.KOREAN -> Language.KO
-        OcrLanguage.LATIN -> Language.EN
-    }
-
-    private companion object {
-        const val KEY = "source"
-        const val LEGACY_KEY = "language"
-        const val AUTO = "auto"
-    }
-}
-
-/** 選んだ訳す先の言語を端末に残す。既定は日本語。 */
-internal class CameraTargetPreference(context: Context) {
-    private val prefs = context.getSharedPreferences("camera_translate", Context.MODE_PRIVATE)
-
-    var value: Language
-        get() = Language.ofCode(prefs.getString(KEY, null).orEmpty()) ?: Language.JA
-        set(language) = prefs.edit().putString(KEY, language.code).apply()
-
-    private companion object {
-        const val KEY = "target"
-    }
-}
