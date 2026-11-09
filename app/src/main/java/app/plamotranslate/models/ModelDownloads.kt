@@ -35,6 +35,18 @@ sealed interface DownloadState {
     data object Completed : DownloadState
 }
 
+/**
+ * 初回の準備がまだか（トップ画面の代わりに「モデルの準備」の画面を出すか）。
+ * 設定の画面から足す組（2B・読み上げ）を取っている間は、準備済みとして扱う
+ * （2026-11-09、読み上げのモデルを取っている間にトップ画面へ戻ると、準備の画面が出ていた）。
+ */
+fun DownloadState.needsSetup(): Boolean = when (this) {
+    DownloadState.Completed -> false
+    is DownloadState.Running -> bundle == ModelBundle.REQUIRED
+    is DownloadState.Idle -> missing.isNotEmpty()
+    is DownloadState.Failed -> missing.isNotEmpty()
+}
+
 /** 設定の画面で足す組（2B・読み上げ）のダウンロードの失敗。その組の欄に出す。 */
 data class BundleFailure(val bundle: ModelBundle, val message: String)
 

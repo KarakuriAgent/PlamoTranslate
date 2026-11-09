@@ -50,6 +50,7 @@ import app.plamotranslate.conversation.ConversationActivity
 import app.plamotranslate.models.DownloadState
 import app.plamotranslate.models.ModelDownloads
 import app.plamotranslate.models.ModelBundle
+import app.plamotranslate.models.needsSetup
 import app.plamotranslate.screen.ScreenTranslateService
 
 
@@ -234,14 +235,6 @@ private fun Tile(
             note?.let { Text(it, style = if (large) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium) }
         }
     }
-}
-
-/** 初回の準備がまだか。設定の画面から2Bを取っている間は、準備済みとして扱う。 */
-private fun DownloadState.needsSetup(): Boolean = when (this) {
-    DownloadState.Completed -> false
-    is DownloadState.Running -> bundle != ModelBundle.LARGE_TRANSLATION
-    is DownloadState.Idle -> missing.isNotEmpty()
-    is DownloadState.Failed -> missing.isNotEmpty()
 }
 
 /** 右上の小さな表示。押すと設定の画面へ。 */
