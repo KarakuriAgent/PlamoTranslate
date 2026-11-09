@@ -44,10 +44,11 @@ fun PerformanceCard(model: ModelState) {
     val libDir = context.applicationInfo.nativeLibraryDir
     val variants = remember { TranslationEngine.cpuVariants(libDir) }
     // 起動時の値。版と「CPUだけ」は起動し直すまで効かないので、変えたら知らせる
-    val startVariant = remember { EngineHolder.cpuOptions(context).variant }
-    val startCpuOnly = remember { EngineHolder.cpuOnly(context) }
-    var options by remember { mutableStateOf(EngineHolder.cpuOptions(context)) }
-    var cpuOnly by remember { mutableStateOf(EngineHolder.cpuOnly(context)) }
+    val preferences = remember { TranslationPreferences(context) }
+    val startVariant = remember { preferences.cpuOptions.variant }
+    val startCpuOnly = remember { preferences.cpuOnly }
+    var options by remember { mutableStateOf(preferences.cpuOptions) }
+    var cpuOnly by remember { mutableStateOf(preferences.cpuOnly) }
     var result by remember { mutableStateOf<String?>(null) }
     var measuring by remember { mutableStateOf(false) }
     val busy = model is ModelState.Loading || measuring
@@ -56,7 +57,8 @@ fun PerformanceCard(model: ModelState) {
         options = next
         cpuOnly = nextCpuOnly
         result = null
-        EngineHolder.saveCpu(context, next, nextCpuOnly)
+        preferences.saveCpu(next, nextCpuOnly)
+        EngineHolder.reload(context)
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -80,7 +82,7 @@ fun PerformanceCard(model: ModelState) {
                     measuring = true
                     result = null
                     scope.launch {
-                        result = runCatching { EngineHolder.bench(context) }.fold(
+                        result = runCatching { EngineBenchmark.run(context) }.fold(
                             onSuccess = { b ->
                                 b?.let {
                                     "最初の文字まで ${it.firstMillis}ms、生成 ${"%.1f".format(it.tokensPerSecond)} トークン/秒" +
