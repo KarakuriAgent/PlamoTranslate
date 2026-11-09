@@ -12,6 +12,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Handler
@@ -59,8 +60,23 @@ class ScreenTranslateService : Service() {
     private var job: Job? = null
     private var batchTranslator: BatchTranslator? = null
     private var debugReceiver: BroadcastReceiver? = null
+    private var orientation = Configuration.ORIENTATION_UNDEFINED
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    /**
+     * 画面を回したら、前の向きで置いた訳の枠を消す（位置が合わなくなる）。訳している途中なら取り消す。
+     * 浮遊ボタンは今の画面の同じ割合の位置へ移す。次に浮遊ボタンを押すと、撮影の大きさを今の向きに合わせてから撮る（[ScreenCapturer]）。
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (newConfig.orientation == orientation) return
+        orientation = newConfig.orientation
+        job?.cancel()
+        overlay?.clear()
+        menu?.dismiss()
+        button?.fitToScreen()
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
@@ -87,6 +103,7 @@ class ScreenTranslateService : Service() {
         }, Handler(Looper.getMainLooper()))
         projection = mp
         capturer = ScreenCapturer(this, mp)
+        orientation = resources.configuration.orientation
 
         val wm = getSystemService(WindowManager::class.java)
         overlay = TranslationOverlay(this, wm)
@@ -130,6 +147,7 @@ class ScreenTranslateService : Service() {
             // 消した後に描かれた画面（1フレーム＝約16ms後以降に届いたもの）を使う
             val bitmap = capturer.capture(since = hiddenAt + 16)
             button?.setVisible(true)
+            val capturedSize = bitmap?.let { "${it.width}x${it.height}" }
             if (bitmap == null) {
                 overlay.showStatus("画面を撮影できませんでした")
                 return@launch
@@ -146,7 +164,8 @@ class ScreenTranslateService : Service() {
                 return@launch
             }
             val ocrMillis = SystemClock.uptimeMillis() - t0
-            val targets = selectTargets(blocks, bitmap, statusBarHeight(), SCREEN_TARGET)
+            val statusBar = statusBarHeight()
+            val targets = selectTargets(blocks, bitmap, statusBar, SCREEN_TARGET)
             bitmap.recycle()
             if (targets.isEmpty()) {
                 overlay.showStatus("訳す文字が見つかりませんでした（文字認識 ${ocrMillis}ms）")
@@ -176,7 +195,7 @@ class ScreenTranslateService : Service() {
             }
             val translateMillis = SystemClock.uptimeMillis() - t1
             overlay.showStatus("${targets.size}件・${"%.1f".format((ocrMillis + translateMillis) / 1000.0)}秒")
-            Log.i(TAG, "画面翻訳: ${blocks.size}ブロック中${targets.size}件、文字認識 ${ocrMillis}ms、翻訳 ${translateMillis}ms、重要度 ${importance()}")
+            Log.i(TAG, "画面翻訳: ${blocks.size}ブロック中${targets.size}件、文字認識 ${ocrMillis}ms、翻訳 ${translateMillis}ms、重要度 ${importance()}、画面 ${capturedSize}、状態バー ${statusBar}px")
         }
     }
 

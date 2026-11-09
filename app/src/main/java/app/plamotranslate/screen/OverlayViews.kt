@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -19,10 +20,18 @@ import app.plamotranslate.overlay.OverlaySlot
 import app.plamotranslate.overlay.dp
 import kotlin.math.abs
 
-/** 状態バーの高さ（px）。撮影画像の座標は画面の左上が原点なので、この高さより上は状態バー。 */
-internal fun Context.statusBarHeight(): Int {
+/**
+ * 今の状態バーの高さ（px）。撮影画像の座標は画面の左上が原点なので、この高さより上は状態バー。
+ * 撮るたびに今の画面から読む。全画面のアプリ（漫画・動画など）で状態バーが隠れていれば0、
+ * 横画面なら横画面の高さになる（2026-11-09。それまでは縦持ちの固定値を読み、全画面のアプリで一番上の文字を捨てていた）。
+ */
+internal fun Context.statusBarHeight(): Int = runCatching {
+    getSystemService(WindowManager::class.java).currentWindowMetrics.windowInsets
+        .getInsets(WindowInsets.Type.statusBars()).top
+}.getOrElse {
+    // 読めない端末では、縦持ちの状態バーの高さ（システムの既定値）を使う
     val id = resources.getIdentifier("status_bar_height", "dimen", "android")
-    return if (id > 0) resources.getDimensionPixelSize(id) else 0
+    if (id > 0) resources.getDimensionPixelSize(id) else 0
 }
 
 /** 訳の枠の見た目。画面の重ね表示と評価の描画（BenchActivity）でそろえる。 */
@@ -54,9 +63,12 @@ class FloatingButton(
     onLongPress: () -> Unit,
 ) {
     private val size = context.dp(56)
+
+    /** 今の画面の大きさ。画面を回したら [fitToScreen] で更新する。 */
+    private var screen = windowManager.maximumWindowMetrics.bounds
     private val params = overlayParams(size, size, Gravity.TOP or Gravity.START).apply {
-        x = context.resources.displayMetrics.widthPixels - size - context.dp(8)
-        y = context.resources.displayMetrics.heightPixels / 3
+        x = screen.width() - size - context.dp(8)
+        y = screen.height() / 3
     }
     private val view = TextView(context).apply {
         setTextColor(Color.WHITE)
@@ -93,8 +105,9 @@ class FloatingButton(
                         view.removeCallbacks(longPress)
                     }
                     if (dragging) {
-                        params.x = startX + dx.toInt()
-                        params.y = startY + dy.toInt()
+                        // 画面の外へ出さない
+                        params.x = (startX + dx.toInt()).coerceIn(0, (screen.width() - size).coerceAtLeast(0))
+                        params.y = (startY + dy.toInt()).coerceIn(0, (screen.height() - size).coerceAtLeast(0))
                         windowManager.updateViewLayout(view, params)
                     }
                 }
@@ -112,6 +125,21 @@ class FloatingButton(
     fun setLabel(label: String) {
         view.text = label
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, if (label.length > 1) 13f else 20f)
+    }
+
+    /**
+     * 画面を回したら、ボタンを今の画面の同じ割合の位置へ移す（右端にあれば右端のまま）。
+     * 移さないと、前の向きの座標のまま画面の中ほどや外に残る。
+     */
+    fun fitToScreen() {
+        val now = windowManager.maximumWindowMetrics.bounds
+        if (now.width() == screen.width() && now.height() == screen.height()) return
+        val fx = params.x.toFloat() / (screen.width() - size).coerceAtLeast(1)
+        val fy = params.y.toFloat() / (screen.height() - size).coerceAtLeast(1)
+        screen = now
+        params.x = (fx * (now.width() - size)).toInt().coerceIn(0, (now.width() - size).coerceAtLeast(0))
+        params.y = (fy * (now.height() - size)).toInt().coerceIn(0, (now.height() - size).coerceAtLeast(0))
+        runCatching { windowManager.updateViewLayout(view, params) }
     }
 
     /** メニューを出す位置の目安（ボタンの左上）。 */
