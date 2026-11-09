@@ -42,6 +42,18 @@ class ConversationLogTest {
     }
 
     @Test
+    fun ドイツ語の相手でも言語名で並べる() {
+        // 2026-11-09、Qwen3-ASRでドイツ語などを選べるようにした
+        val turns = listOf(
+            Turn(0, Direction(Language.DE, Language.JA, mine = false), "Guten Tag", "こんにちは", true, timeMillis = at(9, 0, 0)),
+            Turn(1, Direction(Language.JA, Language.DE, mine = true), "はじめまして", "Freut mich", true, timeMillis = at(9, 0, 5)),
+        )
+        val log = ConversationLog.format(turns, zone)
+        assertEquals(true, log.contains("- 言語：日本語 ⇄ ドイツ語\n"))
+        assertEquals(true, log.contains("**09:00:00 相手（ドイツ語）**\n原文：Guten Tag\n訳（日本語）：こんにちは\n"))
+    }
+
+    @Test
     fun 発話が無ければ空() {
         assertEquals("", ConversationLog.format(emptyList(), zone))
     }

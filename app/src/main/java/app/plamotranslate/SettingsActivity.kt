@@ -37,7 +37,7 @@ import app.plamotranslate.models.ModelBundle
 import app.plamotranslate.models.ModelDownloads
 import app.plamotranslate.models.TranslationModel
 
-/** 設定（2026-11-06、トップ画面から分けた）。翻訳モデルの選択・2Bのダウンロード・今の状態・読み上げ・パフォーマンス・このアプリについて（2026-11-08）。 */
+/** 設定（2026-11-06、トップ画面から分けた）。翻訳モデルの選択・2Bのダウンロード・今の状態・音声認識モデル（2026-11-09）・読み上げ・パフォーマンス・このアプリについて（2026-11-08）。 */
 class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,6 +67,7 @@ private fun SettingsScreen(onBack: () -> Unit) {
             }
             ModelChooser(model)
             ModelStatus(model, onRetry = { EngineHolder.ensureLoaded(context.applicationContext) })
+            AsrCard()
             SpeechCard()
             PerformanceCard(model)
             val version = remember {

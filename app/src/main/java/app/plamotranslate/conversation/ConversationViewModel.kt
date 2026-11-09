@@ -6,14 +6,14 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.plamotranslate.AsrPreferences
 import app.plamotranslate.EngineHolder
 import app.plamotranslate.ModelState
 import app.plamotranslate.ReadAloud
 import app.plamotranslate.audio.MicRecorder
-import app.plamotranslate.models.ModelCatalog
 import app.plamotranslate.asr.AsrEngine
 import app.plamotranslate.asr.AsrEvent
-import app.plamotranslate.asr.SenseVoiceAsr
+import app.plamotranslate.asr.AsrModel
 import app.plamotranslate.asr.Utterance
 import app.plamotranslate.asr.WavFile
 import app.plamotranslate.llm.Language
@@ -21,12 +21,14 @@ import app.plamotranslate.llm.TranslationEvent
 import app.plamotranslate.llm.TranslationRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -38,7 +40,7 @@ import java.util.concurrent.atomic.AtomicLong
 sealed interface AsrState {
     data object Loading : AsrState
     data object Ready : AsrState
-    /** モデルのファイルが無い。adbで置いてもらう（docs/06_開発環境.md）。 */
+    /** モデルのファイルが無い。トップ画面の「モデルの準備」でダウンロードしてもらう（docs/06_開発環境.md）。 */
     data class Missing(val paths: List<String>) : AsrState
     data class Failed(val message: String) : AsrState
 }
@@ -70,6 +72,10 @@ enum class ViewMode(val label: String) { FACE_TO_FACE("対面"), SHARED("1画面
 
 data class ConversationUiState(
     val asr: AsrState = AsrState.Loading,
+    /** 使っている音声認識モデル（設定の画面で選ぶ。2026-11-09）。 */
+    val asrModel: AsrModel = AsrModel.SENSE_VOICE,
+    /** 自分・相手に選べる言語。音声認識モデルで決まる。 */
+    val languages: ConversationLanguages = ConversationLanguages.SENSE_VOICE,
     val listening: Boolean = false,
     val mode: PartnerMode = PartnerMode.AUTO,
     val viewMode: ViewMode = ViewMode.FACE_TO_FACE,
@@ -103,7 +109,14 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
     /** 表示モードと自分の言語は次に開いたときも同じにする。init より前に置く（init で読む）。 */
     private val preferences = ConversationPreferences(app)
 
+    private val asrPreferences = AsrPreferences(app)
     private var asr: AsrEngine? = null
+
+    /** 読み込んだ（または読み込み中の）音声認識モデル。設定の画面で変わったら読み直す（[refreshAsr]）。 */
+    private var asrModel = AsrModel.SENSE_VOICE
+
+    /** 音声認識の読み込みの世代。読み込むたびに進め、終わったときに今の読み込みかを見分ける（メインスレッドだけで触る）。 */
+    private var asrLoadGeneration = 0L
     private var listenJob: Job? = null
     private var nextId = 0L
 
@@ -125,10 +138,8 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
 
     init {
         preferences.viewMode?.let { mode -> _state.update { it.copy(viewMode = mode) } }
-        preferences.self?.let { self ->
-            router.self = self
-            _state.update { it.copy(self = self, partner = router.partner) }
-        }
+        // 保存した自分の言語が今の音声認識モデルで選べるかは、loadAsr で確かめる
+        preferences.self?.let { router.self = it }
         EngineHolder.ensureLoaded(app)
         loadAsr()
         viewModelScope.launch {
@@ -146,20 +157,64 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
         }
     }
 
+    /** 設定の画面で選んだ音声認識モデルを読み込む。選んだモデルが端末に無ければSenseVoice（[AsrPreferences.selected]）。 */
     fun loadAsr() {
-        val dir = ModelCatalog.asrDir(app)
-        val missing = SenseVoiceAsr.missingFiles(dir)
+        val model = asrPreferences.selected()
+        useLanguagesOf(model)
+        val missing = asrPreferences.missingFiles(model)
         if (missing.isNotEmpty()) {
             _state.update { it.copy(asr = AsrState.Missing(missing)) }
             return
         }
         _state.update { it.copy(asr = AsrState.Loading) }
+        val generation = ++asrLoadGeneration
         viewModelScope.launch {
-            val result = withContext(asrDispatcher) { runCatching { SenseVoiceAsr.load(dir) } }
-            result.onSuccess { asr = it.also { engine -> engine.separateChinese = router.chinese } }
+            // 読み込みの途中で画面が閉じられても、できたエンジンを受け取って解放できるよう、取り消さずに最後まで走らせる
+            val result = withContext(asrDispatcher + NonCancellable) { runCatching { asrPreferences.load(model) } }
+            if (!isActive || generation != asrLoadGeneration) {
+                // 画面が閉じられた、または読み込んでいる間に次の読み込みが始まった（A→B→Aと替えたときの先のAなど）。こちらは使わない
+                result.onSuccess { engine -> asrExecutor.execute { engine.close() } }
+                return@launch
+            }
+            result.onSuccess { engine ->
+                engine.separateChinese = router.chinese
+                val old = asr
+                asr = engine
+                // 念のため、前のエンジンが残っていれば解放する（認識中のスレッドが使い終わってから）
+                if (old != null && old !== engine) asrExecutor.execute { old.close() }
+            }
             _state.update {
                 it.copy(asr = result.fold({ AsrState.Ready }, { e -> AsrState.Failed(e.message ?: e.toString()) }))
             }
+        }
+    }
+
+    /**
+     * 設定の画面で音声認識モデルを変えて戻ってきたら、読み直す（画面を開くたびに呼ぶ）。
+     * 聞いている途中なら止める。前のエンジンは、認識中のスレッドが使い終わってから解放する。
+     */
+    fun refreshAsr() {
+        if (asrPreferences.selected() == asrModel) return
+        stop()
+        val old = asr
+        asr = null
+        asrExecutor.execute { old?.close() }
+        loadAsr()
+    }
+
+    /**
+     * 選べる言語を [model] のものにする。保存した自分の言語や固定した相手の言語が選べなければ、日本語・自動に戻す
+     * （2026-11-09。Qwen3-ASRでドイツ語などを選んだ後にSenseVoiceへ戻したとき）。
+     */
+    private fun useLanguagesOf(model: AsrModel) {
+        asrModel = model
+        val languages = ConversationLanguages.of(model)
+        val selfBefore = router.self
+        router.languages = languages
+        if (router.self != selfBefore) preferences.self = null
+        asr?.separateChinese = router.chinese
+        _state.update {
+            it.copy(asrModel = model, languages = languages, self = router.self, mode = router.mode, partner = router.partner)
         }
     }
 
@@ -199,7 +254,7 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
         val samples = WavFile.read(File(path))
         val chunk = AsrEngine.SAMPLE_RATE / 10
         // 末尾に、発話の終わりとみなす無音より長い無音を足し、話し終わりをVADに検出させる
-        val silence = ((SenseVoiceAsr.END_SILENCE_SECONDS + 1) * AsrEngine.SAMPLE_RATE).toInt()
+        val silence = ((AsrEngine.END_SILENCE_SECONDS + 1) * AsrEngine.SAMPLE_RATE).toInt()
         val padded = samples + FloatArray(silence)
         for (from in padded.indices step chunk) {
             val begin = System.nanoTime()

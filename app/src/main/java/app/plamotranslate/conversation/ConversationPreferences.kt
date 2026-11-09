@@ -12,9 +12,12 @@ internal class ConversationPreferences(context: Context) {
         get() = prefs.getString(KEY_VIEW_MODE, null)?.let { name -> ViewMode.entries.firstOrNull { it.name == name } }
         set(mode) = prefs.edit().putString(KEY_VIEW_MODE, mode?.name).apply()
 
-    /** 自分の言語。保存が無い・会話翻訳で選べない言語なら null。 */
+    /**
+     * 自分の言語。保存が無ければ null。選べる言語は音声認識モデルで変わるので、選べるかは読む側が確かめる
+     * （[ConversationViewModel]。選べなければ日本語に戻して、保存も消す）。
+     */
     var self: Language?
-        get() = Language.ofCode(prefs.getString(KEY_SELF, null).orEmpty())?.takeIf { it in CONVERSATION_LANGUAGES }
+        get() = Language.ofCode(prefs.getString(KEY_SELF, null).orEmpty())
         set(language) = prefs.edit().putString(KEY_SELF, language?.code).apply()
 
     private companion object {

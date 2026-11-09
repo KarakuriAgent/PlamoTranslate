@@ -72,6 +72,9 @@ enum class ModelBundle {
 
     /** 読み上げのモデル（Supertonic 3）。設定の画面で「読み上げ」をSupertonic 3にしたときに足す。 */
     SPEECH,
+
+    /** 音声認識のQwen3-ASR。設定の画面の「音声認識モデル」から足す（2026-11-09）。 */
+    QWEN3_ASR,
     ;
 
     val files: List<ModelFile>
@@ -79,6 +82,7 @@ enum class ModelBundle {
             REQUIRED -> ModelCatalog.files
             LARGE_TRANSLATION -> listOf(TranslationModel.LARGE.file)
             SPEECH -> ModelCatalog.speech
+            QWEN3_ASR -> ModelCatalog.qwen3Asr
         }
 
     /**
@@ -163,13 +167,32 @@ object ModelCatalog {
     private fun speechFile(base: String, name: String, size: Long, sha256: String) =
         ModelFile(label = "読み上げ（Supertonic 3）$name", url = "$base/$name", path = "$SPEECH_DIR/$name", size = size, sha256 = sha256)
 
+    /**
+     * 音声認識のQwen3-ASR-0.6B（約990MB）。設定の画面で選んだときだけ取る（2026-11-09、ドイツ語の会話のため）。
+     * sherpa-onnxの作者が書き出したint8版（2026-03-25版。sherpa-onnxのKotlin APIの例が指す版）で、
+     * 元のモデルは `Qwen/Qwen3-ASR-0.6B`（Apache-2.0）。VADはSenseVoiceと同じ `asr/silero_vad.onnx` を使う。
+     * 置き場所は `core-asr` の Qwen3AsrTranscriber.FILES と合わせる。
+     */
+    private const val QWEN3_ASR = "$HF/csukuangfj2/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25/resolve/68818b2313fe77bd06f6a7c5068ff3ef59d02b8a"
+    val qwen3Asr = listOf(
+        qwen3AsrFile("conv_frontend.onnx", 44_148_281L, "d22dc4423e0940e49884e903d2ea2f7e5567c14fc1aed97e4e26d6b8f208ef9e"),
+        qwen3AsrFile("encoder.int8.onnx", 182_491_662L, "60748d3e6744a57c9c91e1b17424a6c2990567e8adceb0783940c03ed98fa9d9"),
+        qwen3AsrFile("decoder.int8.onnx", 755_914_231L, "4f6885be5959ae26af3089d38ee7972c5fafbeeb1cf8d5e76eab6d8b61ca5771"),
+        qwen3AsrFile("tokenizer/vocab.json", 2_776_833L, "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"),
+        qwen3AsrFile("tokenizer/merges.txt", 1_671_853L, "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"),
+        qwen3AsrFile("tokenizer/tokenizer_config.json", 12_487L, "4942d005604266809309cabc9f4e9cb89ce855d59b14681fdc0e1cc62ea26c4c"),
+    )
+
+    private fun qwen3AsrFile(name: String, size: Long, sha256: String) =
+        ModelFile(label = "音声認識（Qwen3-ASR）$name", url = "$QWEN3_ASR/$name", path = "asr/qwen3-asr/$name", size = size, sha256 = sha256)
+
     fun speechDir(context: Context): File = File(modelsDir(context), SPEECH_DIR)
 
     fun speechPresent(context: Context): Boolean = ModelBundle.SPEECH.missing(context).isEmpty()
 
     fun modelsDir(context: Context): File = File(context.getExternalFilesDir(null), "models")
 
-    /** 音声認識（SenseVoice・Silero VAD）の置き場。会話翻訳とテキスト翻訳の音声入力が使う。 */
+    /** 音声認識（SenseVoice・Qwen3-ASR・Silero VAD）の置き場。会話翻訳とテキスト翻訳の音声入力が使う。 */
     fun asrDir(context: Context): File = File(modelsDir(context), "asr")
 
     /** 漫画用OCRの置き場。無ければML Kitだけで動く。 */

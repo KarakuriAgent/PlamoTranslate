@@ -88,6 +88,12 @@ class ConversationActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // 設定の画面で音声認識モデルを変えて戻ってきたら読み直す（2026-11-09）
+        vm.refreshAsr()
+    }
+
     override fun onStop() {
         super.onStop()
         // 画面を離れたらマイクと読み上げを止める（フォアグラウンドサービスはまだ無い）

@@ -29,6 +29,7 @@ sealed interface AsrEvent {
 /**
  * 音声認識の差し替え口（CLAUDE.md「差し替え可能に作る」）。
  * 呼び出し側は1本のスレッドから順に音声を渡し、返ってきた出来事を順に処理する。
+ * 作るのは [AsrModel.load]。今の実装はどのモデルも、VADで区切って認識器で文字にする [SegmentingAsr]（2026-11-09）。
  */
 interface AsrEngine : AutoCloseable {
     /**
@@ -49,5 +50,11 @@ interface AsrEngine : AutoCloseable {
 
     companion object {
         const val SAMPLE_RATE = 16_000
+
+        /**
+         * 話し終わりとみなす無音の長さ（秒）。2026-11-06、作者の要望で0.5秒から2秒にした
+         * （途中訳が見えるので確定を急がず、言いよどみや息継ぎでカードが切れないほうを選んだ）。
+         */
+        const val END_SILENCE_SECONDS = 2.0f
     }
 }
