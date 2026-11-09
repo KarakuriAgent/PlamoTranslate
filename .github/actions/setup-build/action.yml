@@ -32,7 +32,8 @@ runs:
           || { echo "::error::NDKの版が core-llm/build.gradle.kts の ndkVersion と違います"; exit 1; }
         grep -q "version = \"${{ inputs.cmake-version }}\"" core-llm/build.gradle.kts \
           || { echo "::error::CMakeの版が core-llm/build.gradle.kts の cmake.version と違います"; exit 1; }
-        yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+        # yes はsdkmanagerが終わると書き込み先を失って異常終了する。pipefail で失敗扱いにならないよう、終了コードを捨てる
+        (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
           "platforms;android-36" \
           "build-tools;${{ inputs.build-tools-version }}" \
           "ndk;${{ inputs.ndk-version }}" \
