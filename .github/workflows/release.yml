@@ -1,0 +1,151 @@
+# v* のタグで、配布用の鍵で署名した正式版を作り、GitHubのリリースを下書きで作る（docs/06_開発環境.md「CI」）。
+# 下書きを確かめてから、作者が手で公開する。アプリの更新（update/AppUpdater.kt）が読むのは公開したリリースだけ。
+# 決まり（docs/06_開発環境.md「リリースを作る側の決まり」）：タグは v<versionName>、APKのアセットは1つだけ。
+# workflow_dispatch で回すときは、「Use workflow from」でタグを選ぶ（ブランチでは止まる）。
+name: リリース
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: 署名した正式版と下書きのリリース
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write # リリースを作るため
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: タグから回っているか
+        if: github.ref_type != 'tag'
+        run: |
+          echo "::error::タグで回してください（workflow_dispatch では「Use workflow from」で v<versionName> のタグを選ぶ）"
+          exit 1
+
+      - name: 署名のSecretsがそろっているか
+        env:
+          PLAMO_KEYSTORE_BASE64: ${{ secrets.PLAMO_KEYSTORE_BASE64 }}
+          PLAMO_KEYSTORE_PASSWORD: ${{ secrets.PLAMO_KEYSTORE_PASSWORD }}
+          PLAMO_KEY_ALIAS: ${{ secrets.PLAMO_KEY_ALIAS }}
+          PLAMO_KEY_PASSWORD: ${{ secrets.PLAMO_KEY_PASSWORD }}
+        run: |
+          missing=()
+          for name in PLAMO_KEYSTORE_BASE64 PLAMO_KEYSTORE_PASSWORD PLAMO_KEY_ALIAS PLAMO_KEY_PASSWORD; do
+            [[ -n "${!name}" ]] || missing+=("$name")
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::署名のSecretsがありません: ${missing[*]}（docs/06_開発環境.md「CI」の手順で登録する）"
+            exit 1
+          fi
+
+      - name: チェックアウト（submoduleごと）
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: タグと versionName が合っているか
+        id: version
+        run: |
+          version_name="$(sed -n 's/^ *versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          if [[ -z "$version_name" ]]; then
+            echo "::error::app/build.gradle.kts から versionName を読めません"
+            exit 1
+          fi
+          if [[ "$TAG" != "v$version_name" ]]; then
+            echo "::error::タグ（$TAG）が v<versionName>（v$version_name）と違います。versionName を直すか、タグを打ち直す"
+            exit 1
+          fi
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+
+      - name: ビルドの準備
+        uses: ./.github/actions/setup-build
+
+      - name: 署名の鍵を置く
+        env:
+          PLAMO_KEYSTORE_BASE64: ${{ secrets.PLAMO_KEYSTORE_BASE64 }}
+        run: |
+          keystore="$RUNNER_TEMP/plamo-release.jks"
+          (umask 077 && printf '%s' "$PLAMO_KEYSTORE_BASE64" | base64 --decode > "$keystore")
+          echo "PLAMO_KEYSTORE_FILE=$keystore" >> "$GITHUB_ENV"
+
+      - name: assembleRelease（署名する）
+        env:
+          PLAMO_KEYSTORE_PASSWORD: ${{ secrets.PLAMO_KEYSTORE_PASSWORD }}
+          PLAMO_KEY_ALIAS: ${{ secrets.PLAMO_KEY_ALIAS }}
+          PLAMO_KEY_PASSWORD: ${{ secrets.PLAMO_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon :app:assembleRelease
+
+      - name: 署名を確かめて名前を付ける
+        id: apk
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+        run: |
+          src=app/build/outputs/apk/release/app-release.apk
+          if [[ ! -f "$src" ]]; then
+            echo "::error::署名したAPK（$src）ができていません。署名の設定を確かめる"
+            ls -l app/build/outputs/apk/release/ || true
+            exit 1
+          fi
+          apksigner verify --print-certs "$src" | grep -E '^Signer #1 certificate (DN|SHA-256 digest):'
+          mkdir -p dist
+          apk="dist/PlamoTranslate-$VERSION_NAME.apk"
+          cp "$src" "$apk"
+          sha256sum "$apk"
+          echo "path=$apk" >> "$GITHUB_OUTPUT"
+
+      - name: APKを成果物として上げる
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: PlamoTranslate-${{ steps.version.outputs.version_name }}
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+
+      - name: 下書きのリリースを作る
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          APK: ${{ steps.apk.outputs.path }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            # 回し直したとき：下書きならAPKを差し替える。公開済みのものには触らない
+            if [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "true" ]]; then
+              echo "::error::リリース $TAG はもう公開されています。版を上げて新しいタグを打つ"
+              exit 1
+            fi
+            # APKのアセットは1つだけにする（アプリの更新は最初に見つけた .apk を使う）
+            gh release view "$TAG" --json assets --jq '.assets[].name | select(endswith(".apk"))' \
+              | while read -r name; do gh release delete-asset "$TAG" "$name" --yes; done
+            gh release upload "$TAG" "$APK"
+          else
+            notes="$RUNNER_TEMP/notes.md"
+            cat > "$notes" <<'EOF'
+          <!-- 下書き：変更点を書いてから公開する -->
+
+          ## 変更点
+
+          -
+
+          ## 入れ方
+
+          下の `.apk` を端末にダウンロードして開く（Android 13以上、arm64）。前の正式版からは、設定の画面の「このアプリについて」→「更新を確認」でも入れられる。
+
+          Built with PLaMo。翻訳モデルは [PLaMo Community License](https://plamo.preferredai.jp/info/plamo-community-license-ja) のもとで使う。
+          EOF
+            gh release create "$TAG" "$APK" --draft --verify-tag --title "$TAG" --notes-file "$notes"
+          fi
+          echo "下書きのリリースを作りました: $TAG" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 署名の鍵を消す
+        if: always()
+        run: rm -f "$RUNNER_TEMP/plamo-release.jks"

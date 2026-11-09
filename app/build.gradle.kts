@@ -8,16 +8,41 @@ plugins {
 
 /**
  * 配布用（リリース版）の署名鍵。鍵とパスワードはGitに入れず、リポジトリの外の安全な場所に置く
- * （docs/06_開発環境.md「配布用のAPK」）。各PCの `local.properties` の `plamo.keystore` に
- * `keystore.properties` の場所を書く。`storeFile` は相対パスなら `keystore.properties` のフォルダーから探す。
- * 無ければリリース版は署名しない。
+ * （docs/06_開発環境.md「配布用のAPK」）。次の順に探し、どちらも無ければリリース版は署名しない。
+ *
+ * 1. 環境変数 `PLAMO_KEYSTORE_FILE`（`.jks` のパス）・`PLAMO_KEYSTORE_PASSWORD`・`PLAMO_KEY_ALIAS`・`PLAMO_KEY_PASSWORD`。
+ *    GitHub ActionsでSecretsから渡す（docs/06_開発環境.md「CI」）。`PLAMO_KEYSTORE_FILE` があれば残りも必須
+ * 2. 各PCの `local.properties` の `plamo.keystore` に書いた `keystore.properties`。
+ *    `storeFile` は相対パスなら `keystore.properties` のフォルダーから探す
  */
-val releaseKeyFile: File? = rootProject.file("local.properties").takeIf { it.exists() }
-    // パスが日本語を含んでもよいよう、UTF-8で読む（InputStreamで読むとISO-8859-1になり化ける）
-    ?.let { Properties().apply { it.reader(Charsets.UTF_8).use(::load) }.getProperty("plamo.keystore") }
-    ?.let(::File)
-    ?.takeIf { it.exists() }
-val releaseKey = releaseKeyFile?.let { file -> Properties().apply { file.inputStream().use(::load) } }
+class ReleaseKey(val storeFile: File, val storePassword: String, val keyAlias: String, val keyPassword: String)
+
+fun releaseKeyFromEnv(): ReleaseKey? {
+    val storeFile = providers.environmentVariable("PLAMO_KEYSTORE_FILE").orNull?.takeIf { it.isNotBlank() } ?: return null
+    fun required(name: String): String = providers.environmentVariable(name).orNull?.takeIf { it.isNotEmpty() }
+        ?: throw GradleException("PLAMO_KEYSTORE_FILE があるのに $name がありません（署名の環境変数は4つそろえる）")
+    val file = File(storeFile)
+    if (!file.isFile) throw GradleException("PLAMO_KEYSTORE_FILE の鍵がありません: $file")
+    return ReleaseKey(file, required("PLAMO_KEYSTORE_PASSWORD"), required("PLAMO_KEY_ALIAS"), required("PLAMO_KEY_PASSWORD"))
+}
+
+fun releaseKeyFromLocalProperties(): ReleaseKey? {
+    val propsFile = rootProject.file("local.properties").takeIf { it.exists() }
+        // パスが日本語を含んでもよいよう、UTF-8で読む（InputStreamで読むとISO-8859-1になり化ける）
+        ?.let { Properties().apply { it.reader(Charsets.UTF_8).use(::load) }.getProperty("plamo.keystore") }
+        ?.let(::File)
+        ?.takeIf { it.exists() }
+        ?: return null
+    val props = Properties().apply { propsFile.inputStream().use(::load) }
+    return ReleaseKey(
+        storeFile = propsFile.resolveSibling(props.getProperty("storeFile")),
+        storePassword = props.getProperty("storePassword"),
+        keyAlias = props.getProperty("keyAlias"),
+        keyPassword = props.getProperty("keyPassword"),
+    )
+}
+
+val releaseKey: ReleaseKey? = releaseKeyFromEnv() ?: releaseKeyFromLocalProperties()
 
 android {
     namespace = "app.plamotranslate"
@@ -36,10 +61,10 @@ android {
     signingConfigs {
         if (releaseKey != null) {
             create("release") {
-                storeFile = releaseKeyFile!!.resolveSibling(releaseKey.getProperty("storeFile"))
-                storePassword = releaseKey.getProperty("storePassword")
-                keyAlias = releaseKey.getProperty("keyAlias")
-                keyPassword = releaseKey.getProperty("keyPassword")
+                storeFile = releaseKey.storeFile
+                storePassword = releaseKey.storePassword
+                keyAlias = releaseKey.keyAlias
+                keyPassword = releaseKey.keyPassword
             }
         }
     }

@@ -1,0 +1,48 @@
+# mainへのpushとプルリクエストで、単体テストと開発版のビルドを回す（docs/06_開発環境.md「CI」）。
+# 署名の鍵（Secrets）は使わないので、フォークからのプルリクエストでも通る。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 単体テストと開発版のビルド
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: チェックアウト（submoduleごと）
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: ビルドの準備
+        uses: ./.github/actions/setup-build
+
+      - name: 単体テストと assembleDebug
+        run: ./gradlew --no-daemon testDebugUnitTest :app:assembleDebug
+
+      - name: テスト結果を上げる
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-reports
+          path: "*/build/reports/tests/"
+          retention-days: 7
+
+      - name: 開発版のAPKを上げる
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
