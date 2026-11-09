@@ -46,10 +46,11 @@ fun SpeechCard() {
     val download by ModelDownloads.state.collectAsStateWithLifecycle()
     val extraError by ModelDownloads.extraError.collectAsStateWithLifecycle()
     val speaking by ReadAloud.speaking.collectAsStateWithLifecycle()
-    var engine by remember { mutableStateOf(ReadAloud.engine(context)) }
-    var voice by remember { mutableStateOf(ReadAloud.voice(context)) }
-    var speed by remember { mutableStateOf(ReadAloud.speed(context)) }
-    var steps by remember { mutableStateOf(ReadAloud.steps(context)) }
+    val preferences = remember { SpeechPreferences(context) }
+    var engine by remember { mutableStateOf(preferences.engine) }
+    var voice by remember { mutableStateOf(preferences.voice) }
+    var speed by remember { mutableStateOf(preferences.speed) }
+    var steps by remember { mutableStateOf(preferences.steps) }
     var refresh by remember { mutableStateOf(0) }
     val present = remember(refresh, download) { ModelCatalog.speechPresent(context) }
     // 声の数はモデルを読み込むと分かる。Supertonic 3を選んでいてモデルがあれば、開いたときに読み込む
@@ -73,7 +74,7 @@ fun SpeechCard() {
                         selected = engine == e,
                         onClick = {
                             engine = e
-                            ReadAloud.save(context, engine = e)
+                            preferences.engine = e
                         },
                         label = { Text(e.label) },
                     )
@@ -112,7 +113,7 @@ fun SpeechCard() {
                     Slider(
                         value = steps.toFloat(),
                         onValueChange = { steps = it.roundToInt() },
-                        onValueChangeFinished = { ReadAloud.save(context, steps = steps) },
+                        onValueChangeFinished = { preferences.steps = steps },
                         valueRange = SupertonicSpeaker.STEPS_RANGE.first.toFloat()..SupertonicSpeaker.STEPS_RANGE.last.toFloat(),
                         steps = SupertonicSpeaker.STEPS_RANGE.last - SupertonicSpeaker.STEPS_RANGE.first - 1,
                     )
@@ -129,7 +130,7 @@ fun SpeechCard() {
                                 selected = voice == v,
                                 onClick = {
                                     voice = v
-                                    ReadAloud.save(context, voice = v)
+                                    preferences.voice = v
                                 },
                                 label = { Text("${v + 1}") },
                             )
@@ -145,7 +146,7 @@ fun SpeechCard() {
                         selected = speed == s,
                         onClick = {
                             speed = s
-                            ReadAloud.save(context, speed = s)
+                            preferences.speed = s
                         },
                         label = { Text("×$s") },
                     )

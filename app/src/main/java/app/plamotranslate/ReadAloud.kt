@@ -18,22 +18,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** 読み上げに使うもの（設定の画面で選ぶ）。 */
-enum class SpeechEngine(val label: String, val note: String) {
-    SUPERTONIC("Supertonic 3", "端末内のモデルで読む。自然な声。31言語（中国語は無いので、端末の読み上げで読む）"),
-    SYSTEM("端末の読み上げ", "Androidの読み上げエンジン（Googleなど）で読む。追加のダウンロードは要らない"),
-}
-
 /**
  * 訳文の読み上げ（2026-11-08、作者の要望）。押したときだけ読み、自動では読まない。
  * 一度に読むのは1つだけで、別のものを押すと前のものを止める。同じものをもう一度押すと止める。
  *
  * Supertonic 3を選んでいても、モデルが無い・読めない言語（中国語）のときは、端末の読み上げで読む。
  * 会話翻訳は読んでいる間とその直後、マイクの音を無音に置き換える（[isAudible]）。読み上げの声を相手の発話として拾わないため。
+ * 設定（読むもの・声・速さ・段数）は [SpeechPreferences] にあり、読むたびに読む。設定の画面で変えると次に読むときから効く。
  */
 object ReadAloud {
     private const val TAG = "PlamoTranslate"
-    private const val PREFS = "speech"
 
     /** 読み終わってからも、部屋の反響が消えるまでマイクを無音にしておく時間。 */
     private const val ECHO_MILLIS = 400L
@@ -85,52 +79,25 @@ object ReadAloud {
         _speaking.value = null
     }
 
-    fun engine(context: Context): SpeechEngine =
-        prefs(context).getString("engine", null)?.let { runCatching { SpeechEngine.valueOf(it) }.getOrNull() }
-            ?: SpeechEngine.SUPERTONIC
-
-    fun voice(context: Context): Int = prefs(context).getInt("voice", 0)
-
-    fun speed(context: Context): Float = prefs(context).getFloat("speed", 1f)
-
-    /** Supertonic 3の音を作る段数（設定の画面のスライダー）。 */
-    fun steps(context: Context): Int = prefs(context).getInt("steps", SupertonicSpeaker.DEFAULT_STEPS)
-
-    fun save(
-        context: Context,
-        engine: SpeechEngine = engine(context),
-        voice: Int = voice(context),
-        speed: Float = speed(context),
-        steps: Int = steps(context),
-    ) {
-        prefs(context).edit()
-            .putString("engine", engine.name)
-            .putInt("voice", voice)
-            .putFloat("speed", speed)
-            .putInt("steps", steps)
-            .apply()
-        supertonic?.let {
-            it.voice = voice
-            it.speed = speed
-            it.steps = steps
-        }
-    }
-
     /** Supertonic 3の声の数（設定の画面の選択肢）。モデルが無ければ0。 */
     suspend fun supertonicVoices(context: Context): Int =
         if (!ModelCatalog.speechPresent(context)) 0 else supertonic(context.applicationContext).voices()
 
     /** Supertonic 3を選んでいて、モデルがそろっていて、その言語を読めれば使う。それ以外は端末の読み上げ。 */
     private fun speakerFor(app: Context, lang: String): Speaker {
-        if (engine(app) == SpeechEngine.SUPERTONIC && ModelCatalog.speechPresent(app)) {
+        val preferences = SpeechPreferences(app)
+        if (preferences.engine == SpeechEngine.SUPERTONIC && ModelCatalog.speechPresent(app)) {
             val s = supertonic(app)
-            if (s.supports(lang)) return s
+            if (s.supports(lang)) {
+                s.voice = preferences.voice
+                s.speed = preferences.speed
+                s.steps = preferences.steps
+                return s
+            }
         }
         return system ?: SystemSpeaker(app).also { system = it }
     }
 
     private fun supertonic(app: Context): SupertonicSpeaker =
-        supertonic ?: SupertonicSpeaker(ModelCatalog.speechDir(app), voice(app), speed(app), steps(app)).also { supertonic = it }
-
-    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        supertonic ?: SupertonicSpeaker(ModelCatalog.speechDir(app)).also { supertonic = it }
 }
