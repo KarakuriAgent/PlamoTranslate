@@ -15,6 +15,13 @@ interface Transcriber : AutoCloseable {
     fun transcribe(samples: FloatArray): Transcript
 
     /**
+     * 言語が分かっているとき（固定した相手の言語）の認識。返す言語は [lang]（中身が無ければ null）。
+     * 言語を指定して認識するモデル（Canary）と、言語を調べる分を省けるモデル（Qwen3-ASR）は上書きする（2026-11-09）。
+     */
+    fun transcribe(samples: FloatArray, lang: String): Transcript =
+        transcribe(samples).let { Transcript(it.text, if (it.text.isEmpty()) null else lang) }
+
+    /**
      * 言語だけを判定する。区切り（話し手の交代の見張り）で、短い音声の言語を何度も調べるときに使う。
      * 文字にするより安く言語が分かるモデルは、上書きして速くする。
      */

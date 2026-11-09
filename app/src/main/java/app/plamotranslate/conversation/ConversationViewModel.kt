@@ -170,14 +170,17 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
         val generation = ++asrLoadGeneration
         viewModelScope.launch {
             // 読み込みの途中で画面が閉じられても、できたエンジンを受け取って解放できるよう、取り消さずに最後まで走らせる
-            val result = withContext(asrDispatcher + NonCancellable) { runCatching { asrPreferences.load(model) } }
+            // 補助のモデルは、今の会話の言語で要るときだけ一緒に読み込む
+            val speakers = router.speakers
+            val result = withContext(asrDispatcher + NonCancellable) { runCatching { asrPreferences.load(model, speakers) } }
             if (!isActive || generation != asrLoadGeneration) {
                 // 画面が閉じられた、または読み込んでいる間に次の読み込みが始まった（A→B→Aと替えたときの先のAなど）。こちらは使わない
                 result.onSuccess { engine -> asrExecutor.execute { engine.close() } }
                 return@launch
             }
             result.onSuccess { engine ->
-                engine.separateChinese = router.chinese
+                // 読み込んでいる間に言語を変えていれば、それに合わせる（要れば補助のモデルを読み込む）
+                if (engine.languages != router.speakers) useSpeakers(engine)
                 val old = asr
                 asr = engine
                 // 念のため、前のエンジンが残っていれば解放する（認識中のスレッドが使い終わってから）
@@ -212,7 +215,7 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
         val selfBefore = router.self
         router.languages = languages
         if (router.self != selfBefore) preferences.self = null
-        asr?.separateChinese = router.chinese
+        asr?.let(::useSpeakers)
         _state.update {
             it.copy(asrModel = model, languages = languages, self = router.self, mode = router.mode, partner = router.partner)
         }
@@ -231,9 +234,22 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
     }
 
     private fun updateLanguages() {
-        // 自分か相手が中国語のときだけ、音声認識が中国語と日本語を別の話し手として区切る
-        asr?.separateChinese = router.chinese
+        asr?.let(::useSpeakers)
         _state.update { it.copy(self = router.self, mode = router.mode, partner = router.partner) }
+    }
+
+    /**
+     * 音声認識に会話の言語を伝える。自分か相手が中国語のときだけ中国語と日本語を別の話し手として区切り、
+     * 相手がSenseVoiceに無い言語なら補助のモデルに振り分ける（2026-11-09）。補助のモデルが要るようになったら、
+     * 話し始める前に音声認識のスレッドで読み込んでおく。読み込めなければ、エラーとして出す。
+     */
+    private fun useSpeakers(engine: AsrEngine) {
+        engine.languages = router.speakers
+        asrExecutor.execute {
+            runCatching { engine.prepare() }.onFailure { e ->
+                _state.update { it.copy(error = "音声認識の補助のモデルを読み込めませんでした：${e.message ?: e}") }
+            }
+        }
     }
 
     fun setViewMode(mode: ViewMode) {

@@ -1,6 +1,7 @@
 package app.plamotranslate.conversation
 
 import app.plamotranslate.asr.AsrModel
+import app.plamotranslate.asr.SpeakerLanguages
 import app.plamotranslate.llm.Language
 import app.plamotranslate.llm.isChinese
 import org.junit.Assert.assertEquals
@@ -143,5 +144,48 @@ class LanguageRouterTest {
         router.languages = ConversationLanguages.SENSE_VOICE
         assertEquals(Language.KO, router.self)
         assertEquals(PartnerMode.ENGLISH, router.mode)
+    }
+
+    @Test
+    fun Canaryの言語は相手を固定したときだけ選べる() {
+        val languages = ConversationLanguages.of(AsrModel.CANARY)
+        val senseVoice = ConversationLanguages.SENSE_VOICE
+        assertEquals(senseVoice.all + listOf(Language.ES, Language.DE, Language.FR), languages.all)
+        assertEquals(listOf(Language.ES, Language.DE, Language.FR), languages.fixedOnly)
+        // 自分の言語と自動の相手はSenseVoiceのときと同じ
+        assertEquals(senseVoice.all, languages.selves)
+        assertEquals(senseVoice.autoPartners, languages.autoPartners)
+        assertEquals(true, PartnerMode.choices(Language.JA, languages).contains(PartnerMode(Language.DE)))
+    }
+
+    @Test
+    fun Parakeetの言語は欧州の15言語を足す() {
+        val languages = ConversationLanguages.of(AsrModel.PARAKEET)
+        assertEquals(20, languages.all.size)
+        assertEquals(15, languages.fixedOnly.size)
+        assertEquals(true, Language.PL in languages.fixedOnly && Language.RU in languages.fixedOnly)
+        assertEquals(ConversationLanguages.SENSE_VOICE.all, languages.selves)
+    }
+
+    @Test
+    fun Qwen3_ASRでも自分の言語はSenseVoiceの言語だけ() {
+        val languages = ConversationLanguages.of(AsrModel.QWEN3_ASR)
+        assertEquals(ConversationLanguages.SENSE_VOICE.all, languages.selves)
+        assertEquals(true, Language.DE in languages.autoPartners)
+        assertEquals(emptyList<Language>(), languages.fixedOnly)
+        val router = LanguageRouter(self = Language.KO, languages = languages)
+        router.languages = ConversationLanguages.of(AsrModel.QWEN3_ASR)
+        assertEquals(Language.KO, router.self)
+    }
+
+    @Test
+    fun 音声認識に伝える会話の言語() {
+        val router = LanguageRouter(PartnerMode(Language.DE), languages = ConversationLanguages.of(AsrModel.CANARY))
+        assertEquals(SpeakerLanguages("ja", "de"), router.speakers)
+        router.mode = PartnerMode.CHINESE_TRADITIONAL
+        assertEquals(SpeakerLanguages("ja", "yue"), router.speakers)
+        assertEquals(true, router.speakers.separateChinese)
+        router.mode = PartnerMode.AUTO
+        assertEquals(SpeakerLanguages("ja", null), router.speakers)
     }
 }

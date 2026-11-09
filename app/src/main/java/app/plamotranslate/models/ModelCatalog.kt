@@ -73,7 +73,9 @@ enum class ModelBundle {
     /** 読み上げのモデル（Supertonic 3）。設定の画面で「読み上げ」をSupertonic 3にしたときに足す。 */
     SPEECH,
 
-    /** 音声認識のQwen3-ASR。設定の画面の「音声認識モデル」から足す（2026-11-09）。 */
+    /** 音声認識の補助のモデル。設定の画面の「音声認識モデル」から足す（2026-11-09）。 */
+    CANARY,
+    PARAKEET,
     QWEN3_ASR,
     ;
 
@@ -82,6 +84,8 @@ enum class ModelBundle {
             REQUIRED -> ModelCatalog.files
             LARGE_TRANSLATION -> listOf(TranslationModel.LARGE.file)
             SPEECH -> ModelCatalog.speech
+            CANARY -> ModelCatalog.canary
+            PARAKEET -> ModelCatalog.parakeet
             QWEN3_ASR -> ModelCatalog.qwen3Asr
         }
 
@@ -167,24 +171,46 @@ object ModelCatalog {
     private fun speechFile(base: String, name: String, size: Long, sha256: String) =
         ModelFile(label = "読み上げ（Supertonic 3）$name", url = "$base/$name", path = "$SPEECH_DIR/$name", size = size, sha256 = sha256)
 
+    /*
+     * 音声認識の補助のモデル（2026-11-09）。設定の画面で選んだときだけ取る。SenseVoiceが聞けない相手の言語
+     * （ドイツ語など）の発話だけを文字にする。どれもsherpa-onnxの作者が書き出したint8版で、VADはSenseVoiceと同じ
+     * `asr/silero_vad.onnx` を使う。置き場所は `core-asr` の NemoTranscriber・Qwen3AsrTranscriber の FILES と合わせる。
+     */
+
+    /** Canary-180M-flash（約207MB）。元のモデルは `nvidia/canary-180m-flash`（CC-BY-4.0）。 */
+    private const val CANARY = "$HF/csukuangfj/sherpa-onnx-nemo-canary-180m-flash-en-es-de-fr-int8/resolve/9077164e0d3dd1d5353743e89ceaa1d3a770838c"
+    val canary = listOf(
+        asrFile("Canary", CANARY, "canary-180m-flash", "encoder.int8.onnx", 132_678_643L, "7a75b4e2a5857a6dcc0819503bbe3fad66943db4a3ccf21d3f27c633667d303f"),
+        asrFile("Canary", CANARY, "canary-180m-flash", "decoder.int8.onnx", 74_437_848L, "e41a2ab9c0c2fe81a1e8ade5a45fb02a74bc4db7d1f91b89a54a25e2cf79cba2"),
+        asrFile("Canary", CANARY, "canary-180m-flash", "tokens.txt", 53_555L, "2dae6fc7815f9640645e0c765522b278ee0cef49b482d91f6913e334628d3e77"),
+    )
+
+    /** Parakeet TDT 0.6B v3（約670MB）。元のモデルは `nvidia/parakeet-tdt-0.6b-v3`（CC-BY-4.0）。 */
+    private const val PARAKEET = "$HF/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/ed5d745623472f97cfc2e6c2916ee248798fc5a8"
+    val parakeet = listOf(
+        asrFile("Parakeet", PARAKEET, "parakeet-tdt-0.6b-v3", "encoder.int8.onnx", 652_282_294L, "1afbe69c1ffdabee94755f42e4daf1d93549131a3da11356bda84fcef0f2c479"),
+        asrFile("Parakeet", PARAKEET, "parakeet-tdt-0.6b-v3", "decoder.int8.onnx", 11_845_274L, "0222a86147299d4dee90edf95b6d13827edb42ad8b7c9cf0b2582f030937c0b5"),
+        asrFile("Parakeet", PARAKEET, "parakeet-tdt-0.6b-v3", "joiner.int8.onnx", 6_355_277L, "cbd02f3696e9944970111fb439d9c3fd365a80374565f13f2b9c7007d253fc98"),
+        asrFile("Parakeet", PARAKEET, "parakeet-tdt-0.6b-v3", "tokens.txt", 93_939L, "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d"),
+    )
+
     /**
-     * 音声認識のQwen3-ASR-0.6B（約990MB）。設定の画面で選んだときだけ取る（2026-11-09、ドイツ語の会話のため）。
-     * sherpa-onnxの作者が書き出したint8版（2026-03-25版。sherpa-onnxのKotlin APIの例が指す版）で、
-     * 元のモデルは `Qwen/Qwen3-ASR-0.6B`（Apache-2.0）。VADはSenseVoiceと同じ `asr/silero_vad.onnx` を使う。
-     * 置き場所は `core-asr` の Qwen3AsrTranscriber.FILES と合わせる。
+     * Qwen3-ASR-0.6B（約990MB）。2026-03-25版（sherpa-onnxのKotlin APIの例が指す版）。
+     * 元のモデルは `Qwen/Qwen3-ASR-0.6B`（Apache-2.0）。
      */
     private const val QWEN3_ASR = "$HF/csukuangfj2/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25/resolve/68818b2313fe77bd06f6a7c5068ff3ef59d02b8a"
     val qwen3Asr = listOf(
-        qwen3AsrFile("conv_frontend.onnx", 44_148_281L, "d22dc4423e0940e49884e903d2ea2f7e5567c14fc1aed97e4e26d6b8f208ef9e"),
-        qwen3AsrFile("encoder.int8.onnx", 182_491_662L, "60748d3e6744a57c9c91e1b17424a6c2990567e8adceb0783940c03ed98fa9d9"),
-        qwen3AsrFile("decoder.int8.onnx", 755_914_231L, "4f6885be5959ae26af3089d38ee7972c5fafbeeb1cf8d5e76eab6d8b61ca5771"),
-        qwen3AsrFile("tokenizer/vocab.json", 2_776_833L, "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"),
-        qwen3AsrFile("tokenizer/merges.txt", 1_671_853L, "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"),
-        qwen3AsrFile("tokenizer/tokenizer_config.json", 12_487L, "4942d005604266809309cabc9f4e9cb89ce855d59b14681fdc0e1cc62ea26c4c"),
+        asrFile("Qwen3-ASR", QWEN3_ASR, "qwen3-asr", "conv_frontend.onnx", 44_148_281L, "d22dc4423e0940e49884e903d2ea2f7e5567c14fc1aed97e4e26d6b8f208ef9e"),
+        asrFile("Qwen3-ASR", QWEN3_ASR, "qwen3-asr", "encoder.int8.onnx", 182_491_662L, "60748d3e6744a57c9c91e1b17424a6c2990567e8adceb0783940c03ed98fa9d9"),
+        asrFile("Qwen3-ASR", QWEN3_ASR, "qwen3-asr", "decoder.int8.onnx", 755_914_231L, "4f6885be5959ae26af3089d38ee7972c5fafbeeb1cf8d5e76eab6d8b61ca5771"),
+        asrFile("Qwen3-ASR", QWEN3_ASR, "qwen3-asr", "tokenizer/vocab.json", 2_776_833L, "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"),
+        asrFile("Qwen3-ASR", QWEN3_ASR, "qwen3-asr", "tokenizer/merges.txt", 1_671_853L, "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"),
+        asrFile("Qwen3-ASR", QWEN3_ASR, "qwen3-asr", "tokenizer/tokenizer_config.json", 12_487L, "4942d005604266809309cabc9f4e9cb89ce855d59b14681fdc0e1cc62ea26c4c"),
     )
 
-    private fun qwen3AsrFile(name: String, size: Long, sha256: String) =
-        ModelFile(label = "音声認識（Qwen3-ASR）$name", url = "$QWEN3_ASR/$name", path = "asr/qwen3-asr/$name", size = size, sha256 = sha256)
+    /** 補助のモデルの1ファイル。[base] の [name] を `asr/[dir]/[name]` に置く。 */
+    private fun asrFile(model: String, base: String, dir: String, name: String, size: Long, sha256: String) =
+        ModelFile(label = "音声認識（$model）$name", url = "$base/$name", path = "asr/$dir/$name", size = size, sha256 = sha256)
 
     fun speechDir(context: Context): File = File(modelsDir(context), SPEECH_DIR)
 
@@ -192,7 +218,7 @@ object ModelCatalog {
 
     fun modelsDir(context: Context): File = File(context.getExternalFilesDir(null), "models")
 
-    /** 音声認識（SenseVoice・Qwen3-ASR・Silero VAD）の置き場。会話翻訳とテキスト翻訳の音声入力が使う。 */
+    /** 音声認識（SenseVoice・補助のモデル・Silero VAD）の置き場。会話翻訳とテキスト翻訳の音声入力が使う。 */
     fun asrDir(context: Context): File = File(modelsDir(context), "asr")
 
     /** 漫画用OCRの置き場。無ければML Kitだけで動く。 */

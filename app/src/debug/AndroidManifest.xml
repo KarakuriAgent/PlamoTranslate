@@ -9,17 +9,6 @@
         <activity
             android:name=".TranslateBenchActivity"
             android:exported="true" />
-        <!-- Android標準の端末内音声認識の試し（デバッグビルドだけ）。docs/04_会話翻訳.md「音声認識の候補」。
-             作者が実機で直接試せるよう、ランチャーにも別のアイコンで出す -->
-        <activity
-            android:name=".SpeechProbeActivity"
-            android:exported="true"
-            android:label="音声認識の試し">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <!-- 会話翻訳の動作確認用：デバッグ版だけadbから音声ファイルを渡して開ける（docs/04_会話翻訳.md「動作確認」） -->
         <activity
             android:name=".conversation.ConversationActivity"

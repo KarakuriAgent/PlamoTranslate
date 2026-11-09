@@ -93,7 +93,7 @@ internal fun Controls(state: ConversationUiState, model: ModelState, actions: Co
 
 /**
  * 自分の言語の選択（2026-11-08、作者の要望で日本語以外も選べるようにした）。
- * 選べるのは音声認識モデルが聞き分けられる言語だけ（[ConversationLanguages]。Qwen3-ASRなら20を超えるので、メニューはスクロールする）。
+ * 選べるのはSenseVoiceが聞き分けられる言語だけ（[ConversationLanguages.selves]。2026-11-09、補助のモデルの言語は相手だけにした）。
  */
 @Composable
 private fun SelfMenu(self: Language, languages: ConversationLanguages, onSelect: (Language) -> Unit) {
@@ -101,7 +101,7 @@ private fun SelfMenu(self: Language, languages: ConversationLanguages, onSelect:
     Box {
         OutlinedButton(onClick = { open = true }, contentPadding = MenuButtonPadding) { Text("自分：${PartnerMode(self).short()} ▾") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            languages.all.forEach { lang ->
+            languages.selves.forEach { lang ->
                 DropdownMenuItem(
                     text = { Text(if (lang == self) "✓ ${lang.conversationLabel}" else lang.conversationLabel) },
                     onClick = { open = false; onSelect(lang) },

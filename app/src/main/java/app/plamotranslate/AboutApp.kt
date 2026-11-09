@@ -36,6 +36,17 @@ private val NOTICES = listOf(
     Notice("PLaMo 3 Translate（翻訳モデル、Preferred Networks）", "PLaMo Community License", PLAMO_LICENSE_URL),
     Notice("SenseVoice Small（音声認識、FunAudioLLM）", "リンク先のモデルのライセンス", "https://github.com/FunAudioLLM/SenseVoice"),
     Notice("Qwen3-ASR-0.6B（音声認識、Alibaba Qwen。設定で選んだときだけ）", "Apache-2.0", "https://huggingface.co/Qwen/Qwen3-ASR-0.6B"),
+    // CC-BY-4.0は、元の作者の表示と、手を加えたことの表示を求める（sherpa-onnxの作者がONNXに書き出し、int8に量子化した版を使う）
+    Notice(
+        "Canary-180M-flash（音声認識、NVIDIA。設定で選んだときだけ。sherpa-onnx向けにONNX・int8へ変換した版）",
+        "CC-BY-4.0",
+        "https://huggingface.co/nvidia/canary-180m-flash",
+    ),
+    Notice(
+        "Parakeet TDT 0.6B v3（音声認識、NVIDIA。設定で選んだときだけ。sherpa-onnx向けにONNX・int8へ変換した版）",
+        "CC-BY-4.0",
+        "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3",
+    ),
     Notice("Silero VAD（話しているかの判定）", "MIT", "https://github.com/snakers4/silero-vad"),
     Notice("Supertonic 3（読み上げ、Supertone）", "OpenRAIL-M", "https://huggingface.co/Supertone/supertonic-3/blob/main/LICENSE"),
     Notice("sherpa-onnx・ONNX Runtime（音声認識・読み上げの実行）", "Apache-2.0・MIT", "https://github.com/k2-fsa/sherpa-onnx"),

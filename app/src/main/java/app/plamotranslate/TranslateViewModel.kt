@@ -8,9 +8,10 @@ import androidx.lifecycle.viewModelScope
 import app.plamotranslate.asr.AsrEngine
 import app.plamotranslate.asr.AsrEvent
 import app.plamotranslate.asr.AsrModel
+import app.plamotranslate.asr.SpeakerLanguages
 import app.plamotranslate.audio.MicRecorder
+import app.plamotranslate.conversation.asrCode
 import app.plamotranslate.llm.Language
-import app.plamotranslate.llm.isChinese
 import app.plamotranslate.llm.TranslationEvent
 import app.plamotranslate.llm.TranslationRequest
 import kotlinx.coroutines.CancellationException
@@ -83,7 +84,8 @@ class TranslateViewModel(private val app: Application) : AndroidViewModel(app) {
     /**
      * 音声で原文を入れる（2026-11-08、作者の要望）。1回押すと1つの発話を聞き取り、話し終わったら止まって訳す。
      * 聞き取り中は途中の文字を原文の欄に出し、すでに書いてある原文の後ろに足す。
-     * 聞き取れる言語は音声認識モデルで決まる（SenseVoiceは日本語・韓国語・英語・中国語・広東語、Qwen3-ASRはドイツ語なども）。
+     * 聞き取れる言語は音声認識モデルで決まる（SenseVoiceは日本語・韓国語・英語・中国語・広東語。補助のモデルがあれば、
+     * 原文の言語に選んだドイツ語なども。補助がQwen3-ASRなら、原文の言語が自動でも日本語以外を聞き取る）。
      */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startVoice() {
@@ -96,7 +98,9 @@ class TranslateViewModel(private val app: Application) : AndroidViewModel(app) {
             var heard: String? = null
             try {
                 withContext(asrDispatcher) {
-                    engine.separateChinese = _state.value.source?.isChinese == true
+                    // 原文の言語を相手の言語として伝える。SenseVoiceに無い言語（ドイツ語など）なら補助のモデルで聞き取る
+                    engine.languages = SpeakerLanguages(partner = _state.value.source?.asrCode)
+                    engine.prepare()
                     engine.reset()
                     var silentChunks = 0
                     var spoke = false

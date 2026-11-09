@@ -99,9 +99,32 @@ class AsrTest {
 
     @Test
     fun モデルごとに聞ける言語() {
-        assertEquals(setOf("ja", "ko", "en", "zh", "yue"), AsrModel.SENSE_VOICE.languages)
+        val senseVoice = setOf("ja", "ko", "en", "zh", "yue")
+        assertEquals(senseVoice, AsrModel.SENSE_VOICE.languages)
         assertEquals(30, AsrModel.QWEN3_ASR.languages.size)
         assertTrue("de" in AsrModel.QWEN3_ASR.languages)
+        assertEquals(senseVoice + setOf("de", "es", "fr"), AsrModel.CANARY.languages)
+        assertEquals(29, AsrModel.PARAKEET.languages.size)
+        // 自分の言語はどの組でもSenseVoiceの言語。自動の相手は、言語を判定できる補助（Qwen3-ASR）だけ広がる
+        AsrModel.entries.forEach { assertEquals(senseVoice, it.selfLanguages) }
+        assertEquals(senseVoice, AsrModel.CANARY.autoLanguages)
+        assertEquals(senseVoice, AsrModel.PARAKEET.autoLanguages)
+        assertEquals(AsrModel.QWEN3_ASR.languages, AsrModel.QWEN3_ASR.autoLanguages)
+    }
+
+    @Test
+    fun NeMoの結果の句読点の前の空白を取る() {
+        assertEquals("Alles hat ein Ende, nur die Wurst hat zwei.", NemoTranscriber.cleanText(" Alles hat ein Ende , nur die Wurst hat zwei . "))
+        assertEquals("", NemoTranscriber.cleanText(" . "))
+    }
+
+    @Test
+    fun 中国語を区別するのは自分か相手が中国語のとき() {
+        assertEquals(false, SpeakerLanguages().separateChinese)
+        assertEquals(true, SpeakerLanguages("ja", "zh").separateChinese)
+        assertEquals(true, SpeakerLanguages("ja", "yue").separateChinese)
+        assertEquals(true, SpeakerLanguages("zh", null).separateChinese)
+        assertEquals(false, SpeakerLanguages("ja", "de").separateChinese)
     }
 
     @Test

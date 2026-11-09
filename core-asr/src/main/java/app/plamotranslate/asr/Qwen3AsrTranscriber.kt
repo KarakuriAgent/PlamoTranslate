@@ -9,6 +9,7 @@ import java.io.File
 /**
  * Qwen3-ASR-0.6B（int8、sherpa-onnx）の認識器（2026-11-09、ドイツ語の会話のために足した。docs/04_会話翻訳.md「音声認識」）。
  * 30言語を聞き分ける。発話単位の一括認識で、デコーダーは自己回帰（0.6BのLLM）なのでSenseVoiceより重い。
+ * 補助のモデルとして、SenseVoiceが自分の言語と判定しなかった発話だけを文字にする（[HelperModel.QWEN3_ASR]）。
  *
  * **言語の取り方**：Qwen3-ASRは文字の前に「language German<asr_text>」の形で言語を出すが、sherpa-onnx 2.0.1はこの接頭辞を
  * 取り除き、認識結果の言語（`lang`）も空のまま返す（`offline-recognizer-qwen3-asr-impl.cc`。masterでも同じ、2026-11-09確認）。
@@ -18,7 +19,7 @@ import java.io.File
  * 広東語で正しく取れ、無音と雑音では「language None」になることを確かめた（2026-11-09）。
  * このときsherpa-onnxが「Result is truncated」をエラーとしてログに出すが、意図したものなので害は無い。
  *
- * [AsrModel.QWEN3_ASR] の置き場に [FILES] を置く（docs/06_開発環境.md「モデルの置き場」）。
+ * [HelperModel.QWEN3_ASR] の置き場に [FILES] を置く（docs/06_開発環境.md「モデルの置き場」）。
  */
 internal class Qwen3AsrTranscriber private constructor(private val recognizer: OfflineRecognizer) : Transcriber {
     override fun transcribe(samples: FloatArray): Transcript {
@@ -26,6 +27,12 @@ internal class Qwen3AsrTranscriber private constructor(private val recognizer: O
         // 中身のない結果の言語は使わない（話し手の交代と誤ってカードを切らない）。言語を調べる分の認識も省ける
         if (text.isEmpty()) return Transcript("", null)
         return Transcript(text, language(samples))
+    }
+
+    /** 相手を固定したとき。言語は分かっているので、言語を調べるもう1回の認識を省く。 */
+    override fun transcribe(samples: FloatArray, lang: String): Transcript {
+        val text = cleanText(decode(samples, maxNewTokens = null))
+        return Transcript(text, if (text.isEmpty()) null else lang)
     }
 
     /**

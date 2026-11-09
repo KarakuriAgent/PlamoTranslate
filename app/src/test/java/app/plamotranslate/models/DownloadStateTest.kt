@@ -19,6 +19,7 @@ class DownloadStateTest {
         assertFalse(DownloadState.Running(ModelBundle.SPEECH, file, 0, 1).needsSetup())
         assertFalse(DownloadState.Running(ModelBundle.LARGE_TRANSLATION, file, 0, 1).needsSetup())
         assertFalse(DownloadState.Running(ModelBundle.QWEN3_ASR, file, 0, 1).needsSetup())
+        assertFalse(DownloadState.Running(ModelBundle.CANARY, file, 0, 1).needsSetup())
     }
 
     @Test

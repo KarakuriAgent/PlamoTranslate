@@ -3,19 +3,36 @@ package app.plamotranslate.asr
 /**
  * VADで話し始めと文の終わりを見つけ、発話を区切って認識器（[Transcriber]）で1発話ずつ認識する（docs/04_会話翻訳.md）。
  * 話している最中は、0.5秒ごとに話し始めからの音声を認識し直して途中結果を出す（疑似ストリーミング）。
- * 区切り方はどの認識モデルでも同じで、モデルの違いは [transcriber] の中に閉じる（2026-11-09、Qwen3-ASRを足すときに
+ * 区切り方はどの認識モデルでも同じで、モデルの違いは認識器の中に閉じる（2026-11-09、Qwen3-ASRを足すときに
  * SenseVoiceAsrから切り出した）。
+ *
+ * 区切り（話し手の交代の見張り）の言語は、いつも [senseVoice] の言語タグで判定する。SenseVoiceが聞けない相手の言語の発話だけ、
+ * 補助のモデル（[helper]、[loadHelper] で初めて要ったときに読み込む）で文字にする（振り分けは [recognize]、2026-11-09）。
  */
 internal class SegmentingAsr(
     private val vad: VoiceDetector,
-    private val transcriber: Transcriber,
+    private val senseVoice: Transcriber,
+    private val helper: HelperModel? = null,
+    private val loadHelper: () -> Transcriber = { error("補助のモデルがありません") },
 ) : AsrEngine {
     private val buffer = SpeechBuffer(PREROLL_SAMPLES, MAX_SPEECH_SAMPLES)
 
-    @Volatile override var separateChinese = false
+    @Volatile override var languages = SpeakerLanguages()
 
-    /** 言語の比較用にまとめる（[sameGroup]）。中国語の相手でなければ、中国語・広東語は日本語と同じに扱う。 */
-    private fun sameGroup(lang: String?): String? = sameGroup(lang, separateChinese)
+    /** 読み込んだ補助のモデル。一度読み込んだら、閉じるまで持つ。 */
+    private var helperTranscriber: Transcriber? = null
+
+    override fun prepare() {
+        if (!closed && usesHelper(helper, languages)) helperTranscriber()
+    }
+
+    private fun helperTranscriber(): Transcriber = helperTranscriber ?: loadHelper().also { helperTranscriber = it }
+
+    /** 言語の比較用にまとめる（[group]）。 */
+    private fun sameGroup(lang: String?): String? {
+        val l = languages
+        return group(lang, l, usesHelper(helper, l))
+    }
 
     /** 前の途中結果を出してから、話している音声がどれだけ増えたか。 */
     private var sinceLastPartial = 0
@@ -214,7 +231,7 @@ internal class SegmentingAsr(
     /** ためた音声の [from]〜[to] の言語。短すぎて分からなければ null。 */
     private fun langOf(from: Int, to: Int): String? {
         if (to - from < MIN_PARTIAL_SAMPLES) return null
-        return transcriber.language(buffer.slice(from, to))
+        return senseVoice.language(buffer.slice(from, to))
     }
 
     override fun flush(): List<AsrEvent> {
@@ -243,7 +260,7 @@ internal class SegmentingAsr(
         bufferStart += samples.size
         if (samples.size < MIN_PARTIAL_SAMPLES) return null
         val start = System.nanoTime()
-        val (text, lang) = transcriber.transcribe(samples)
+        val (text, lang) = recognize(samples)
         if (text.isEmpty()) return null
         return AsrEvent.Final(
             Utterance(
@@ -259,7 +276,7 @@ internal class SegmentingAsr(
     /** 話し始めからここまでの音声を認識し直す。 */
     private fun partial(): AsrEvent.Partial? {
         val start = System.nanoTime()
-        val (text, lang) = transcriber.transcribe(buffer.snapshot())
+        val (text, lang) = recognize(buffer.snapshot())
         val costSamples = ((System.nanoTime() - start) / 1_000_000 * AsrEngine.SAMPLE_RATE / 1000).toInt()
         partialInterval = maxOf(MIN_PARTIAL_INTERVAL, costSamples * 3)
         lastPartialLang = lang
@@ -267,6 +284,25 @@ internal class SegmentingAsr(
         if (text.isEmpty() || text == lastPartialText) return null
         lastPartialText = text
         return AsrEvent.Partial(text, lang)
+    }
+
+    /**
+     * 会話の言語の組で、文字にするモデルを振り分ける（2026-11-09）。まずSenseVoiceで認識する。
+     * - 補助のモデルを使わない会話（相手がSenseVoiceの言語、または自動で補助が言語を判定できない）は、SenseVoiceの結果のまま。
+     * - SenseVoiceが自分の言語と判定し、中身のある発話は、SenseVoiceの結果のまま。
+     * - それ以外は補助のモデルで文字にし直す。SenseVoiceの結果が空の発話も補助に回す。SenseVoiceはスペイン語の発話を
+     *   「.」とだけ聞くことがあり（2026-11-09、PCで試験音声を流して確かめた）、空のまま返すとカードごと消えるため。相手を固定していれば、言語は相手の言語とする（言語を調べる認識をしない）。
+     *   自動（補助がQwen3-ASR）なら、言語は補助のモデルの判定。
+     * 途中結果も同じ振り分けで、補助に流す発話は補助のモデルで認識し直す。遅いモデルなら、途中結果の間隔は
+     * 認識にかかった時間（SenseVoiceと補助の合計）の3倍に延びる。
+     */
+    private fun recognize(samples: FloatArray): Transcript {
+        val heard = senseVoice.transcribe(samples)
+        val l = languages
+        if (!usesHelper(helper, l)) return heard
+        if (heard.text.isNotEmpty() && group(heard.lang, l, true) == group(l.self, l, true)) return heard
+        val partner = l.partner ?: return helperTranscriber().transcribe(samples)
+        return helperTranscriber().transcribe(samples, partner)
     }
 
     /** 直前に出した途中結果。同じ文字を続けて出さないために持つ。 */
@@ -286,7 +322,8 @@ internal class SegmentingAsr(
         if (closed) return
         closed = true
         vad.close()
-        transcriber.close()
+        senseVoice.close()
+        helperTranscriber?.close()
     }
 
     companion object {
@@ -338,6 +375,31 @@ internal class SegmentingAsr(
             "zh" -> if (separateChinese) "zh" else "ja"
             else -> group
         }
+
+        /**
+         * [languages] の会話で補助のモデルを使うか（2026-11-09）。相手を固定していれば、相手がSenseVoiceに無く補助が聞ける
+         * 言語のとき。自動なら、補助が言語を判定できる（Qwen3-ASR）とき。相手がSenseVoiceの言語なら、補助は読み込まず使わない。
+         */
+        internal fun usesHelper(helper: HelperModel?, languages: SpeakerLanguages): Boolean {
+            helper ?: return false
+            val partner = languages.partner ?: return helper.detectsLanguage
+            return partner !in SenseVoiceTranscriber.LANGUAGES && partner in helper.languages
+        }
+
+        /**
+         * 話し手の交代を比べるときの言語のまとめ方。補助のモデルを使わない会話は [sameGroup] のまま。
+         * 補助のモデルを使う会話（[helperUsed]）では、自分の言語（の組）でない判定を全部、相手の言語1つにまとめる
+         * （相手が自動なら [PARTNER]）。SenseVoiceはドイツ語などを英語や日本語と取り違え、判定が文ごとに揺れるので、
+         * そのまま比べると相手の話の途中でカードが切れる。自分の言語かどうかだけを比べる。
+         */
+        internal fun group(lang: String?, languages: SpeakerLanguages, helperUsed: Boolean): String? {
+            val group = sameGroup(lang, languages.separateChinese)
+            if (!helperUsed || group == null) return group
+            return if (group == sameGroup(languages.self, languages.separateChinese)) group else languages.partner ?: PARTNER
+        }
+
+        /** 補助のモデルを使う自動の会話で、自分以外の話し手をまとめた印。 */
+        internal const val PARTNER = "partner"
 
         /** 判定が揺れやすい言語から、まとめる先の言語へ。 */
         private val CONFUSABLE = mapOf(

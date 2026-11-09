@@ -1,6 +1,7 @@
 package app.plamotranslate.conversation
 
 import app.plamotranslate.asr.AsrModel
+import app.plamotranslate.asr.SpeakerLanguages
 import app.plamotranslate.llm.Language
 import app.plamotranslate.llm.isChinese
 import app.plamotranslate.llm.sameAs
@@ -11,16 +12,30 @@ import app.plamotranslate.llm.sameAs
  * 自分の言語も日本語以外を選べるようにした。2026-11-09、ドイツ語の会話のために音声認識モデルを選べるようにし、
  * 選べる言語をモデルごとにした（SenseVoiceは日本語・韓国語・英語・中国語・広東語、Qwen3-ASRはドイツ語なども）。
  * 広東語はPLaMoの言語に無いので、繁体字の中国語として訳す（話し言葉の広東語ではなく書き言葉の中国語になる）。
+ * 同じ日、SenseVoiceを主軸にして聞けない言語だけ補助のモデルに流す形にし、自分の言語はどの組でもSenseVoiceの言語だけにした
+ * （自分の発話かどうかをSenseVoiceの言語タグで見分けるため。docs/04_会話翻訳.md「会話で選べる言語」）。
  *
- * [all] は自分・相手に選べる言語で、並びは [Language] の順（よく使う5つが先）。
+ * [all] は相手に選べる言語で、並びは [Language] の順（よく使う5つが先）。[selves] は自分に選べる言語。
  * [autoPartners] は自動の相手の候補。中国語は自動判定に入れない（漢字の多い日本語の聞き違いで、自分の発話が
- * 中国語として扱われるため）。
+ * 中国語として扱われるため）。言語を判定できない補助のモデル（Canary・Parakeet）の言語も入れない。
  */
-data class ConversationLanguages(val all: List<Language>, val autoPartners: List<Language>) {
+data class ConversationLanguages(
+    val all: List<Language>,
+    val autoPartners: List<Language>,
+    val selves: List<Language> = all,
+) {
+    /** 相手を固定したときだけ選べる言語（自分にも自動の相手にもできない）。設定の画面の説明に出す。 */
+    val fixedOnly: List<Language>
+        get() = all.filter { it !in selves && it !in autoPartners && !it.isChinese }
+
     companion object {
         fun of(model: AsrModel): ConversationLanguages {
             val all = Language.entries.filter { it.asrCode in model.languages }
-            return ConversationLanguages(all, all.filterNot { it.isChinese })
+            return ConversationLanguages(
+                all = all,
+                autoPartners = all.filter { it.asrCode in model.autoLanguages && !it.isChinese },
+                selves = all.filter { it.asrCode in model.selfLanguages },
+            )
         }
 
         /** SenseVoice（既定のモデル）の言語。日本語・韓国語・英語・中国語（簡体字・繁体字）。自動の相手は日本語・韓国語・英語。 */
@@ -30,7 +45,8 @@ data class ConversationLanguages(val all: List<Language>, val autoPartners: List
 
 /**
  * 音声認識が言語を表すコード。PLaMoのコードと違うものだけ書き換える。
- * 繁体字の中国語は広東語の話し手として聞き取る（SenseVoice・Qwen3-ASRの "yue"）。
+ * 繁体字の中国語は広東語の話し手として聞き取る（SenseVoice・Qwen3-ASRの "yue"）。音声認識に会話の言語を伝えるときにも使う
+ * （[LanguageRouter.speakers]）。
  * タガログ語は、Qwen3-ASRのフィリピン語（"fil"。タガログ語を元にした標準語）として聞き取る。
  */
 internal val Language.asrCode: String
@@ -123,12 +139,12 @@ class LanguageRouter(
 
     /**
      * 選べる言語（音声認識モデルで決まる）。変えたとき、自分の言語が選べなければ日本語に、固定した相手の言語が
-     * 選べなければ自動に戻す（2026-11-09。Qwen3-ASRでドイツ語を選んだ後にSenseVoiceへ戻したとき）。
+     * 選べなければ自動に戻す（2026-11-09。補助のモデルでドイツ語を選んだ後にSenseVoiceへ戻したとき）。
      */
     var languages: ConversationLanguages = languages
         set(value) {
             field = value
-            if (self !in value.all) self = Language.JA
+            if (self !in value.selves) self = Language.JA
             if (mode.fixed?.let { it !in value.all } == true) mode = PartnerMode.AUTO
             if (lastPartner?.let { it !in value.all } == true) lastPartner = null
         }
@@ -142,6 +158,12 @@ class LanguageRouter(
      * 音声認識が話し手の交代で区切るときも、このときだけ中国語を日本語と別に扱う。
      */
     val chinese: Boolean get() = self.isChinese || mode.fixed?.isChinese == true
+
+    /**
+     * 音声認識に伝える会話の言語（2026-11-09）。音声認識は、これで話し手の交代の比べ方と、補助のモデルへの振り分けを決める。
+     * 中国語を日本語と別に扱うか（[chinese]）もここから決まる。
+     */
+    val speakers: SpeakerLanguages get() = SpeakerLanguages(self.asrCode, mode.fixed?.asrCode)
 
     /** 確定した発話の方向を決め、自動なら相手の言語を覚える。 */
     fun route(text: String, langCode: String?): Direction = preview(text, langCode).also {

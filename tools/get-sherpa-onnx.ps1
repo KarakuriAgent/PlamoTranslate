@@ -5,17 +5,19 @@
 .DESCRIPTION
   1. sherpa-onnxのAAR（ONNX Runtimeを静的に組み込んだ版）を third_party/sherpa-onnx/ へ置く。ビルドに要る
   2. -Models を付けると、SenseVoice Small（int8）とSilero VADを models/asr/ へ置く。端末へはadbで送る
-  3. -Qwen3Asr を付けると、Qwen3-ASR-0.6B（int8、約990MB）を models/asr/qwen3-asr/ へ置く（2026-11-09）。
-     アプリでは設定の画面から取るので、開発でadbから送るときだけ使う
+  3. 音声認識の補助のモデル（2026-11-09）。アプリでは設定の画面から取るので、開発でadbから送るときだけ使う
+     -Canary   Canary-180M-flash（int8、約207MB）を models/asr/canary-180m-flash/ へ置く
+     -Parakeet Parakeet TDT 0.6B v3（int8、約670MB）を models/asr/parakeet-tdt-0.6b-v3/ へ置く
+     -Qwen3Asr Qwen3-ASR-0.6B（int8、約990MB）を models/asr/qwen3-asr/ へ置く
 
   どれもGitに入れない（.gitignore）。版は gradle/libs.versions.toml の sherpa-onnx に合わせる。
 
 .EXAMPLE
   ./tools/get-sherpa-onnx.ps1 -Models
 .EXAMPLE
-  ./tools/get-sherpa-onnx.ps1 -Qwen3Asr
+  ./tools/get-sherpa-onnx.ps1 -Canary
 #>
-param([switch]$Models, [switch]$Qwen3Asr)
+param([switch]$Models, [switch]$Canary, [switch]$Parakeet, [switch]$Qwen3Asr)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
@@ -54,20 +56,40 @@ if ($Models) {
     "モデル: $asr（端末へは docs/06_開発環境.md「モデルの置き方」の手順で送る）"
 }
 
+# 補助のモデルを、配布元のファイルの名前のまま models/asr/<dir>/ へ置く
+function Get-Helper($label, $hf, $dir, $files) {
+    $dest = Join-Path $repo "models\asr\$dir"
+    foreach ($name in $files.Keys) {
+        Get-Verified "$hf/$name" (Join-Path $dest $name) $files[$name]
+    }
+    "${label}: $dest（端末へは docs/06_開発環境.md「モデルの取得と置き場」の手順で送る）"
+}
+
+# どれも app/.../models/ModelCatalog.kt と同じコミット・ハッシュ（2026-11-09に取得して確かめた）
+if ($Canary) {
+    Get-Helper "Canary" "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-canary-180m-flash-en-es-de-fr-int8/resolve/9077164e0d3dd1d5353743e89ceaa1d3a770838c" "canary-180m-flash" ([ordered]@{
+        "encoder.int8.onnx" = "7A75B4E2A5857A6DCC0819503BBE3FAD66943DB4A3CCF21D3F27C633667D303F"
+        "decoder.int8.onnx" = "E41A2AB9C0C2FE81A1E8ADE5A45FB02A74BC4DB7D1F91B89A54A25E2CF79CBA2"
+        "tokens.txt"        = "2DAE6FC7815F9640645E0C765522B278EE0CEF49B482D91F6913E334628D3E77"
+    })
+}
+
+if ($Parakeet) {
+    Get-Helper "Parakeet" "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/ed5d745623472f97cfc2e6c2916ee248798fc5a8" "parakeet-tdt-0.6b-v3" ([ordered]@{
+        "encoder.int8.onnx" = "1AFBE69C1FFDABEE94755F42E4DAF1D93549131A3DA11356BDA84FCEF0F2C479"
+        "decoder.int8.onnx" = "0222A86147299D4DEE90EDF95B6D13827EDB42AD8B7C9CF0B2582F030937C0B5"
+        "joiner.int8.onnx"  = "CBD02F3696E9944970111FB439D9C3FD365A80374565F13F2B9C7007D253FC98"
+        "tokens.txt"        = "D58544679EA4BC6AC563D1F545EB7D474BD6CFA467F0A6E2C1DC1C7D37E3C35D"
+    })
+}
+
 if ($Qwen3Asr) {
-    # app/.../models/ModelCatalog.kt の qwen3Asr と同じコミット・ハッシュ（2026-11-09に取得して確かめた）
-    $hf = "https://huggingface.co/csukuangfj2/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25/resolve/68818b2313fe77bd06f6a7c5068ff3ef59d02b8a"
-    $qwen = Join-Path $repo "models\asr\qwen3-asr"
-    $files = [ordered]@{
+    Get-Helper "Qwen3-ASR" "https://huggingface.co/csukuangfj2/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25/resolve/68818b2313fe77bd06f6a7c5068ff3ef59d02b8a" "qwen3-asr" ([ordered]@{
         "conv_frontend.onnx"              = "D22DC4423E0940E49884E903D2EA2F7E5567C14FC1AED97E4E26D6B8F208EF9E"
         "encoder.int8.onnx"               = "60748D3E6744A57C9C91E1B17424A6C2990567E8ADCEB0783940C03ED98FA9D9"
         "decoder.int8.onnx"               = "4F6885BE5959AE26AF3089D38EE7972C5FAFBEEB1CF8D5E76EAB6D8B61CA5771"
         "tokenizer/vocab.json"            = "CA10D7E9FB3ED18575DD1E277A2579C16D108E32F27439684AFA0E10B1440910"
         "tokenizer/merges.txt"            = "8831E4F1A044471340F7C0A83D7BD71306A5B867E95FD870F74D0C5308A904D5"
         "tokenizer/tokenizer_config.json" = "4942D005604266809309CABC9F4E9CB89CE855D59B14681FDC0E1CC62EA26C4C"
-    }
-    foreach ($name in $files.Keys) {
-        Get-Verified "$hf/$name" (Join-Path $qwen $name) $files[$name]
-    }
-    "Qwen3-ASR: $qwen（端末へは docs/06_開発環境.md「モデルの取得と置き場」の手順で送る）"
+    })
 }

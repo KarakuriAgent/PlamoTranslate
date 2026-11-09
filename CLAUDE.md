@@ -37,10 +37,10 @@
 
 | モジュール | 役割 |
 | --- | --- |
-| `app` | 画面（Jetpack Compose。トップ・テキスト翻訳・設定・会話翻訳・カメラ翻訳）、翻訳モデルの選択と読み込み、モデルのダウンロード（`models/`）、アプリの更新（`update/`）、画面翻訳のフォアグラウンドサービスと重ね表示・クイック設定のタイル（`screen/`）、カメラ翻訳（`camera/`。CameraX、行の追跡と段落）、会話翻訳（`conversation/`）。画面翻訳とカメラ翻訳の共通部品は `overlay/`、マイクは `audio/`、設定の保存は機能ごとの `*Preferences`。`src/debug` に評価用の `BenchActivity` と翻訳モデルの比べの `TranslateBenchActivity`、Android標準の端末内音声認識の試しの `SpeechProbeActivity` |
+| `app` | 画面（Jetpack Compose。トップ・テキスト翻訳・設定・会話翻訳・カメラ翻訳）、翻訳モデルの選択と読み込み、モデルのダウンロード（`models/`）、アプリの更新（`update/`）、画面翻訳のフォアグラウンドサービスと重ね表示・クイック設定のタイル（`screen/`）、カメラ翻訳（`camera/`。CameraX、行の追跡と段落）、会話翻訳（`conversation/`）。画面翻訳とカメラ翻訳の共通部品は `overlay/`、マイクは `audio/`、設定の保存は機能ごとの `*Preferences`。`src/debug` に評価用の `BenchActivity` と翻訳モデルの比べの `TranslateBenchActivity` |
 | `core-llm` | llama.cppのJNIラッパー、PFML3プロンプトの組み立て、翻訳の実行 |
 | `core-ocr` | 文字認識のインターフェースと実装（ML Kit、漫画用OCR）、行の選択とまとまりの組み立て |
-| `core-asr` | 音声認識のインターフェースと実装（sherpa-onnxでSilero VADとSenseVoice） |
+| `core-asr` | 音声認識のインターフェースと実装（sherpa-onnxでSilero VADとSenseVoice。SenseVoiceが聞けない相手の言語だけ補助のモデル（Canary・Parakeet・Qwen3-ASR）に流す） |
 | `core-tts` | 読み上げのインターフェースと実装（sherpa-onnxでSupertonic 3、Androidの読み上げエンジン） |
 | `third_party/` | git submodule：llama.cpp、OpenCL-Headers、OpenCL-ICD-Loader。`sherpa-onnx/` はAAR（Gitに入れず、`tools/get-sherpa-onnx.ps1` で取得） |
 | `tools/` | 端末での計測・評価のスクリプト、評価の採点、翻訳の比べに使う文の組（`translate-*.tsv`）、評価用画像の置き場（画像・重みはGitに入れない） |
