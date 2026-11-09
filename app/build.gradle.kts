@@ -9,6 +9,7 @@ plugins {
 /**
  * 配布用（リリース版）の署名鍵。鍵とパスワードはGitに入れず、リポジトリの外の安全な場所に置く
  * （docs/06_開発環境.md「配布用のAPK」）。次の順に探し、どちらも無ければリリース版は署名しない。
+ * 鍵があれば開発版（debug）もこの鍵で署名する（下の buildTypes）。
  *
  * 1. 環境変数 `PLAMO_KEYSTORE_FILE`（`.jks` のパス）・`PLAMO_KEYSTORE_PASSWORD`・`PLAMO_KEY_ALIAS`・`PLAMO_KEY_PASSWORD`。
  *    GitHub ActionsでSecretsから渡す（docs/06_開発環境.md「CI」）。`PLAMO_KEYSTORE_FILE` があれば残りも必須
@@ -72,6 +73,12 @@ android {
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.findByName("release")
+        }
+        debug {
+            // 配布用の鍵があれば、開発版もその鍵で署名する（2026-11-09、作者の判断）。開発版と正式版を、
+            // アプリを消さずに上書きで入れ替えて確かめられるようにするため。CIの開発版も同じ（docs/06_開発環境.md「CI」）。
+            // 鍵が無ければ、今までどおりAGP既定のデバッグ鍵で署名する
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     compileOptions {

@@ -1,5 +1,6 @@
 # mainへのpushとプルリクエストで、単体テストと開発版のビルドを回す（docs/06_開発環境.md「CI」）。
-# 署名の鍵（Secrets）は使わないので、フォークからのプルリクエストでも通る。
+# 署名のSecretsがそろっていれば、開発版も正式版と同じ鍵で署名する（上書きで入れ替えられるように）。
+# そろっていなければ（フォークからのプルリクエストなど）、今までどおり使い捨てのデバッグ鍵で署名して通す。
 name: CI
 
 on:
@@ -29,8 +30,50 @@ jobs:
       - name: ビルドの準備
         uses: ./.github/actions/setup-build
 
+      - name: 署名の鍵を置く（Secretsがそろっているときだけ）
+        id: key
+        env:
+          PLAMO_KEYSTORE_BASE64: ${{ secrets.PLAMO_KEYSTORE_BASE64 }}
+          PLAMO_KEYSTORE_PASSWORD: ${{ secrets.PLAMO_KEYSTORE_PASSWORD }}
+          PLAMO_KEY_ALIAS: ${{ secrets.PLAMO_KEY_ALIAS }}
+          PLAMO_KEY_PASSWORD: ${{ secrets.PLAMO_KEY_PASSWORD }}
+        run: |
+          missing=()
+          for name in PLAMO_KEYSTORE_BASE64 PLAMO_KEYSTORE_PASSWORD PLAMO_KEY_ALIAS PLAMO_KEY_PASSWORD; do
+            [[ -n "${!name}" ]] || missing+=("$name")
+          done
+          if (( ${#missing[@]} == 4 )); then
+            echo "::notice::署名のSecretsが無いので、開発版は使い捨てのデバッグ鍵で署名します"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if (( ${#missing[@]} > 0 )); then
+            echo "::warning::署名のSecretsが足りません: ${missing[*]}。開発版は使い捨てのデバッグ鍵で署名します"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          keystore="$RUNNER_TEMP/plamo-release.jks"
+          (umask 077 && printf '%s' "$PLAMO_KEYSTORE_BASE64" | base64 --decode > "$keystore")
+          echo "PLAMO_KEYSTORE_FILE=$keystore" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      # PLAMO_KEYSTORE_FILE が無ければ、app/build.gradle.kts は残りの環境変数を見ない
       - name: 単体テストと assembleDebug
+        env:
+          PLAMO_KEYSTORE_PASSWORD: ${{ secrets.PLAMO_KEYSTORE_PASSWORD }}
+          PLAMO_KEY_ALIAS: ${{ secrets.PLAMO_KEY_ALIAS }}
+          PLAMO_KEY_PASSWORD: ${{ secrets.PLAMO_KEY_PASSWORD }}
         run: ./gradlew --no-daemon testDebugUnitTest :app:assembleDebug
+
+      - name: 署名を確かめる
+        if: steps.key.outputs.signed == 'true'
+        run: |
+          apksigner verify --print-certs app/build/outputs/apk/debug/app-debug.apk \
+            | grep -E '^Signer #1 certificate (DN|SHA-256 digest):'
+
+      - name: 署名の鍵を消す
+        if: always()
+        run: rm -f "$RUNNER_TEMP/plamo-release.jks"
 
       - name: テスト結果を上げる
         if: failure()
