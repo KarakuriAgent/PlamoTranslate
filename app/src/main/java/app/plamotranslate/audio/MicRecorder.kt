@@ -1,4 +1,4 @@
-package app.plamotranslate.conversation
+package app.plamotranslate.audio
 
 import android.Manifest
 import android.media.AudioFormat

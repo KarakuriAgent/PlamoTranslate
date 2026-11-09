@@ -1,6 +1,8 @@
 package app.plamotranslate.conversation
 
 import app.plamotranslate.llm.Language
+import app.plamotranslate.llm.isChinese
+import app.plamotranslate.llm.sameAs
 
 /**
  * 会話で使える言語。音声認識（SenseVoice）が聞き分けられる日本語・韓国語・英語・中国語・広東語で決まる
@@ -52,11 +54,6 @@ data class PartnerMode(val fixed: Language?) {
             listOf(AUTO) + CONVERSATION_LANGUAGES.filterNot { it.sameAs(self) }.map(::PartnerMode)
     }
 }
-
-internal val Language.isChinese: Boolean get() = this == Language.ZH || this == Language.ZH_HANT
-
-/** 同じ話し手の言語とみなすか。簡体字と繁体字（広東語）は、どちらも同じ中国語の話し手として扱う。 */
-internal fun Language.sameAs(other: Language): Boolean = this == other || (isChinese && other.isChinese)
 
 /** 1つの発話を、どの言語からどの言語へ訳すか。[mine] は自分の発話。 */
 data class Direction(val source: Language, val target: Language, val mine: Boolean = source == Language.JA)

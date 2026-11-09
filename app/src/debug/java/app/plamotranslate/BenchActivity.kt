@@ -1,5 +1,7 @@
 package app.plamotranslate
 
+import app.plamotranslate.models.ModelCatalog
+
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -73,7 +75,7 @@ class BenchActivity : ComponentActivity() {
         }
         val language = OcrLanguage.parse(intent.getStringExtra("lang"))
         say("ベンチ: 原文の言語 $language")
-        val ocr = MultiScriptOcr(ScreenTranslateService.mangaModelDir(this))
+        val ocr = MultiScriptOcr(ModelCatalog.mangaDir(this))
         say("ベンチ: 漫画モデル ${if (ocr.hasMangaModel) "あり" else "なし（ML Kitだけ）"}")
         val statusBar = statusBarHeight()
         val results = File(output, "results.jsonl")

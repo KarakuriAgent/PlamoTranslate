@@ -10,6 +10,8 @@ import androidx.lifecycle.viewModelScope
 import app.plamotranslate.EngineHolder
 import app.plamotranslate.ModelState
 import app.plamotranslate.ReadAloud
+import app.plamotranslate.audio.MicRecorder
+import app.plamotranslate.models.ModelCatalog
 import app.plamotranslate.asr.AsrEngine
 import app.plamotranslate.asr.AsrEvent
 import app.plamotranslate.asr.SenseVoiceAsr
@@ -147,7 +149,7 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
     }
 
     fun loadAsr() {
-        val dir = modelDir(app)
+        val dir = ModelCatalog.asrDir(app)
         val missing = SenseVoiceAsr.missingFiles(dir)
         if (missing.isNotEmpty()) {
             _state.update { it.copy(asr = AsrState.Missing(missing)) }
@@ -368,8 +370,5 @@ class ConversationViewModel(private val app: Application) : AndroidViewModel(app
         /** 音声認識（sherpa-onnx）は同じスレッドから順に呼ぶ。 */
         private val asrExecutor = Executors.newSingleThreadExecutor { r -> Thread(r, "PlamoAsr") }
         private val asrDispatcher = asrExecutor.asCoroutineDispatcher()
-
-        /** docs/06_開発環境.md の置き場。adb で置く。 */
-        fun modelDir(context: Context): File = File(context.getExternalFilesDir("models"), "asr")
     }
 }

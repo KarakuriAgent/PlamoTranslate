@@ -8,10 +8,10 @@ import androidx.lifecycle.viewModelScope
 import app.plamotranslate.asr.AsrEngine
 import app.plamotranslate.asr.AsrEvent
 import app.plamotranslate.asr.SenseVoiceAsr
-import app.plamotranslate.conversation.ConversationViewModel
-import app.plamotranslate.conversation.MicRecorder
-import app.plamotranslate.conversation.isChinese
+import app.plamotranslate.audio.MicRecorder
 import app.plamotranslate.llm.Language
+import app.plamotranslate.llm.isChinese
+import app.plamotranslate.models.ModelCatalog
 import app.plamotranslate.llm.TranslationEvent
 import app.plamotranslate.llm.TranslationRequest
 import kotlinx.coroutines.CancellationException
@@ -131,7 +131,7 @@ class TranslateViewModel(private val app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun loadAsr(): AsrEngine? {
-        val dir = ConversationViewModel.modelDir(app)
+        val dir = ModelCatalog.asrDir(app)
         if (SenseVoiceAsr.missingFiles(dir).isNotEmpty()) {
             _state.update { it.copy(error = "音声認識のモデルがありません。トップ画面の「モデルの準備」でダウンロードしてください") }
             return null

@@ -140,6 +140,12 @@ object ModelCatalog {
 
     fun modelsDir(context: Context): File = File(context.getExternalFilesDir(null), "models")
 
+    /** 音声認識（SenseVoice・Silero VAD）の置き場。会話翻訳とテキスト翻訳の音声入力が使う。 */
+    fun asrDir(context: Context): File = File(modelsDir(context), "asr")
+
+    /** 漫画用OCRの置き場。無ければML Kitだけで動く。 */
+    fun mangaDir(context: Context): File = File(modelsDir(context), "ocr/manga")
+
     /**
      * まだ置かれていないファイル。大きさだけで見る（毎回ハッシュを計算すると起動が遅くなる）。
      * ダウンロードしたものは置く前にハッシュを照合している。

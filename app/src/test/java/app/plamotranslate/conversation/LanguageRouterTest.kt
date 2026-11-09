@@ -1,6 +1,7 @@
 package app.plamotranslate.conversation
 
 import app.plamotranslate.llm.Language
+import app.plamotranslate.llm.isChinese
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

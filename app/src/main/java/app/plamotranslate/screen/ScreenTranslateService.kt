@@ -21,8 +21,8 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
-import java.io.File
 import app.plamotranslate.EngineHolder
+import app.plamotranslate.models.ModelCatalog
 import app.plamotranslate.ocr.MultiScriptOcr
 import app.plamotranslate.ocr.OcrLanguage
 import kotlinx.coroutines.CancellationException
@@ -53,7 +53,7 @@ class ScreenTranslateService : Service() {
     private var overlay: TranslationOverlay? = null
     private var menu: LanguageMenu? = null
     private val languagePreference by lazy { LanguagePreference(this) }
-    private val ocr by lazy { MultiScriptOcr(mangaModelDir(this)) }
+    private val ocr by lazy { MultiScriptOcr(ModelCatalog.mangaDir(this)) }
     private var job: Job? = null
     private var batchTranslator: BatchTranslator? = null
     private var debugReceiver: BroadcastReceiver? = null
@@ -246,9 +246,6 @@ class ScreenTranslateService : Service() {
         const val ACTION_STOP = "app.plamotranslate.STOP_SCREEN_TRANSLATE"
         private const val DEBUG_TRANSLATE = "app.plamotranslate.DEBUG_TRANSLATE"
         private const val DEBUG_CONFIG = "app.plamotranslate.DEBUG_CONFIG"
-
-        /** 漫画モデルの置き場（docs/06_開発環境.md）。adb で置く。無ければML Kitだけで動く。 */
-        fun mangaModelDir(context: Context): File = File(context.getExternalFilesDir("models"), "ocr/manga")
 
         private val _running = MutableStateFlow(false)
         val running: StateFlow<Boolean> = _running.asStateFlow()
