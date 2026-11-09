@@ -14,8 +14,10 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
-    <!-- 初回起動時のモデルのダウンロードだけに使う。翻訳・認識の処理は通信しない -->
+    <!-- モデルのダウンロードと、設定の「更新を確認」を押したときだけに使う。翻訳・認識の処理は通信しない -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 設定の「ダウンロードして更新」：GitHubのリリースから取った新しい版を入れる（AppUpdater） -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="false"
@@ -83,5 +85,9 @@
             android:name=".screen.ScreenTranslateService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
+        <!-- 更新のインストールの結果（PackageInstaller） -->
+        <receiver
+            android:name=".update.InstallResultReceiver"
+            android:exported="false" />
     </application>
 </manifest>

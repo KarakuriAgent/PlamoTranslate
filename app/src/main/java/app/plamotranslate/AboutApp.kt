@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.plamotranslate.update.UpdateSection
 
 /*
  * 配布のための表示（2026-11-08、APKを配布するため）。
@@ -81,9 +82,11 @@ fun AboutCard(version: String) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("このアプリについて", style = MaterialTheme.typography.titleMedium)
             Text("PLaMo翻訳 $version", style = MaterialTheme.typography.bodyMedium)
+            UpdateSection()
             Text(BUILT_WITH_PLAMO, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
             Text(
-                "翻訳・音声認識・文字の認識は、すべて端末の中で動きます。通信するのは、モデルのダウンロードのときだけです。" +
+                "翻訳・音声認識・文字の認識は、すべて端末の中で動きます。通信するのは、モデルのダウンロードと、" +
+                    "「更新を確認」を押したときだけです。" +
                     "訳は機械翻訳で、誤りを含むことがあります。大事な判断には使わないでください。",
                 style = MaterialTheme.typography.bodySmall,
             )
