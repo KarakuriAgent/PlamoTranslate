@@ -7,24 +7,21 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.plamotranslate.asr.AsrEngine
 import app.plamotranslate.asr.AsrEvent
-import app.plamotranslate.asr.AsrModel
-import app.plamotranslate.asr.SpeakerLanguages
+import app.plamotranslate.asr.SenseVoiceAsr
 import app.plamotranslate.audio.MicRecorder
-import app.plamotranslate.conversation.asrCode
 import app.plamotranslate.llm.Language
+import app.plamotranslate.llm.isChinese
+import app.plamotranslate.models.ModelCatalog
 import app.plamotranslate.llm.TranslationEvent
 import app.plamotranslate.llm.TranslationRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
@@ -53,10 +50,8 @@ class TranslateViewModel(private val app: Application) : AndroidViewModel(app) {
 
     private var translateJob: Job? = null
 
-    /** 音声入力の音声認識。初めてマイクを押したときに読み込む（会話翻訳と同じく、設定の画面で選んだモデル）。 */
+    /** 音声入力の音声認識。初めてマイクを押したときに読み込む（会話翻訳と同じモデル）。 */
     private var asr: AsrEngine? = null
-    private var asrModel: AsrModel? = null
-    private val asrPreferences = AsrPreferences(app)
     private var voiceJob: Job? = null
 
     /** 止めるボタンが押されたか。押されたら、話しかけの分も確定させてから止める。 */
@@ -84,23 +79,20 @@ class TranslateViewModel(private val app: Application) : AndroidViewModel(app) {
     /**
      * 音声で原文を入れる（2026-11-08、作者の要望）。1回押すと1つの発話を聞き取り、話し終わったら止まって訳す。
      * 聞き取り中は途中の文字を原文の欄に出し、すでに書いてある原文の後ろに足す。
-     * 聞き取れる言語は音声認識モデルで決まる（SenseVoiceは日本語・韓国語・英語・中国語・広東語。補助のモデルがあれば、
-     * 原文の言語に選んだドイツ語なども。補助がQwen3-ASRなら、原文の言語が自動でも日本語以外を聞き取る）。
+     * 音声認識（SenseVoice）が聞き取れるのは日本語・韓国語・英語・中国語・広東語だけ。
      */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startVoice() {
         if (voiceJob?.isActive == true) return
         stopVoice = false
         voiceJob = viewModelScope.launch {
-            val engine = currentAsr() ?: return@launch
+            val engine = asr ?: loadAsr() ?: return@launch
             val base = _state.value.input
             _state.update { it.copy(voice = VoiceState.Listening, error = null) }
             var heard: String? = null
             try {
                 withContext(asrDispatcher) {
-                    // 原文の言語を相手の言語として伝える。SenseVoiceに無い言語（ドイツ語など）なら補助のモデルで聞き取る
-                    engine.languages = SpeakerLanguages(partner = _state.value.source?.asrCode)
-                    engine.prepare()
+                    engine.separateChinese = _state.value.source?.isChinese == true
                     engine.reset()
                     var silentChunks = 0
                     var spoke = false
@@ -138,27 +130,17 @@ class TranslateViewModel(private val app: Application) : AndroidViewModel(app) {
         stopVoice = true
     }
 
-    /** 選んでいる音声認識モデルのエンジン。まだ読んでいない・設定の画面で替わっていれば読み込む。 */
-    private suspend fun currentAsr(): AsrEngine? {
-        val model = asrPreferences.selected()
-        asr?.takeIf { asrModel == model }?.let { return it }
-        asr?.let { old -> asrExecutor.execute { old.close() } }
-        asr = null
-        asrModel = null
-        if (asrPreferences.missingFiles(model).isNotEmpty()) {
+    private suspend fun loadAsr(): AsrEngine? {
+        val dir = ModelCatalog.asrDir(app)
+        if (SenseVoiceAsr.missingFiles(dir).isNotEmpty()) {
             _state.update { it.copy(error = "音声認識のモデルがありません。トップ画面の「モデルの準備」でダウンロードしてください") }
             return null
         }
         _state.update { it.copy(voice = VoiceState.Loading, error = null) }
-        // 読み込みの途中で画面が閉じられても、できたエンジンを受け取って解放できるよう、取り消さずに最後まで走らせる
-        val result = withContext(asrDispatcher + NonCancellable) { runCatching { asrPreferences.load(model) } }
-        if (!currentCoroutineContext().isActive) {
-            result.onSuccess { engine -> asrExecutor.execute { engine.close() } }
-            return null
-        }
+        val result = withContext(asrDispatcher) { runCatching { SenseVoiceAsr.load(dir) } }
         _state.update { it.copy(voice = VoiceState.Idle) }
         return result.fold(
-            { it.also { engine -> asr = engine; asrModel = model } },
+            { it.also { engine -> asr = engine } },
             { e -> _state.update { it.copy(error = "音声認識を読み込めませんでした：${e.message}") }; null },
         )
     }

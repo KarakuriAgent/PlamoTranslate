@@ -1,7 +1,5 @@
 package app.plamotranslate.conversation
 
-import app.plamotranslate.asr.AsrModel
-import app.plamotranslate.asr.SpeakerLanguages
 import app.plamotranslate.llm.Language
 import app.plamotranslate.llm.isChinese
 import org.junit.Assert.assertEquals
@@ -88,104 +86,5 @@ class LanguageRouterTest {
         assertEquals(Direction(Language.ZH, Language.KO, mine = true), router.route("你好", "zh"))
         assertEquals(Direction(Language.ZH_HANT, Language.KO, mine = true), router.route("多謝", "yue"))
         assertEquals(Direction(Language.KO, Language.ZH, mine = false), router.route("안녕", "ko"))
-    }
-
-    @Test
-    fun SenseVoiceで選べる言語は今までと同じ5つ() {
-        val languages = ConversationLanguages.of(AsrModel.SENSE_VOICE)
-        assertEquals(listOf(Language.JA, Language.KO, Language.EN, Language.ZH, Language.ZH_HANT), languages.all)
-        assertEquals(listOf(Language.JA, Language.KO, Language.EN), languages.autoPartners)
-        assertEquals("自動（韓国語・英語）", PartnerMode.AUTO.label(Language.JA, languages))
-    }
-
-    @Test
-    fun Qwen3_ASRではドイツ語などを選べる() {
-        val languages = ConversationLanguages.of(AsrModel.QWEN3_ASR)
-        assertEquals(listOf(Language.JA, Language.KO, Language.EN, Language.ZH, Language.ZH_HANT), languages.all.take(5))
-        assertEquals(true, Language.DE in languages.all)
-        assertEquals(true, Language.TL in languages.all) // フィリピン語として聞き取る
-        // PLaMoに無いポルトガル語などは出ない。中国語は自動の候補に入れない
-        assertEquals(21, languages.all.size)
-        assertEquals(false, languages.autoPartners.any { it.isChinese })
-        assertEquals(true, PartnerMode.choices(Language.JA, languages).contains(PartnerMode(Language.DE)))
-    }
-
-    @Test
-    fun Qwen3_ASRではドイツ語の判定を言語のコードで決める() {
-        val router = LanguageRouter(PartnerMode(Language.DE), languages = ConversationLanguages.of(AsrModel.QWEN3_ASR))
-        assertEquals(Direction(Language.DE, Language.JA), router.route("Guten Tag", "de"))
-        assertEquals(Direction(Language.JA, Language.DE), router.route("こんにちは", "ja"))
-        // 判定が無いラテン文字の文は、英語ではなくドイツ語（ラテン文字の相手）とみなす
-        assertEquals(Language.DE, LanguageRouter.spokenLanguage("Guten Tag", null, latin = Language.DE))
-        assertEquals(Direction(Language.DE, Language.JA), router.route("Guten Tag", null))
-    }
-
-    @Test
-    fun Qwen3_ASRの自動では話した言語を相手として覚える() {
-        val router = LanguageRouter(languages = ConversationLanguages.of(AsrModel.QWEN3_ASR))
-        assertEquals(Direction(Language.FR, Language.JA), router.route("Bonjour", "fr"))
-        assertEquals(Direction(Language.JA, Language.FR), router.route("こんにちは", "ja"))
-        // PLaMoに無い言語の判定（ポルトガル語）は、文字の種類で決める
-        assertEquals(Language.FR, LanguageRouter.spokenLanguage("Olá", "pt", latin = Language.FR))
-    }
-
-    @Test
-    fun SenseVoiceに戻したら選べない言語は日本語と自動に戻す() {
-        val router = LanguageRouter(PartnerMode(Language.DE), self = Language.FR, languages = ConversationLanguages.of(AsrModel.QWEN3_ASR))
-        router.languages = ConversationLanguages.SENSE_VOICE
-        assertEquals(Language.JA, router.self)
-        assertEquals(PartnerMode.AUTO, router.mode)
-        assertEquals(Language.KO, router.partner)
-    }
-
-    @Test
-    fun SenseVoiceに戻しても選べる言語はそのまま() {
-        val router = LanguageRouter(PartnerMode.ENGLISH, self = Language.KO, languages = ConversationLanguages.of(AsrModel.QWEN3_ASR))
-        router.languages = ConversationLanguages.SENSE_VOICE
-        assertEquals(Language.KO, router.self)
-        assertEquals(PartnerMode.ENGLISH, router.mode)
-    }
-
-    @Test
-    fun Canaryの言語は相手を固定したときだけ選べる() {
-        val languages = ConversationLanguages.of(AsrModel.CANARY)
-        val senseVoice = ConversationLanguages.SENSE_VOICE
-        assertEquals(senseVoice.all + listOf(Language.ES, Language.DE, Language.FR), languages.all)
-        assertEquals(listOf(Language.ES, Language.DE, Language.FR), languages.fixedOnly)
-        // 自分の言語と自動の相手はSenseVoiceのときと同じ
-        assertEquals(senseVoice.all, languages.selves)
-        assertEquals(senseVoice.autoPartners, languages.autoPartners)
-        assertEquals(true, PartnerMode.choices(Language.JA, languages).contains(PartnerMode(Language.DE)))
-    }
-
-    @Test
-    fun Parakeetの言語は欧州の15言語を足す() {
-        val languages = ConversationLanguages.of(AsrModel.PARAKEET)
-        assertEquals(20, languages.all.size)
-        assertEquals(15, languages.fixedOnly.size)
-        assertEquals(true, Language.PL in languages.fixedOnly && Language.RU in languages.fixedOnly)
-        assertEquals(ConversationLanguages.SENSE_VOICE.all, languages.selves)
-    }
-
-    @Test
-    fun Qwen3_ASRでも自分の言語はSenseVoiceの言語だけ() {
-        val languages = ConversationLanguages.of(AsrModel.QWEN3_ASR)
-        assertEquals(ConversationLanguages.SENSE_VOICE.all, languages.selves)
-        assertEquals(true, Language.DE in languages.autoPartners)
-        assertEquals(emptyList<Language>(), languages.fixedOnly)
-        val router = LanguageRouter(self = Language.KO, languages = languages)
-        router.languages = ConversationLanguages.of(AsrModel.QWEN3_ASR)
-        assertEquals(Language.KO, router.self)
-    }
-
-    @Test
-    fun 音声認識に伝える会話の言語() {
-        val router = LanguageRouter(PartnerMode(Language.DE), languages = ConversationLanguages.of(AsrModel.CANARY))
-        assertEquals(SpeakerLanguages("ja", "de"), router.speakers)
-        router.mode = PartnerMode.CHINESE_TRADITIONAL
-        assertEquals(SpeakerLanguages("ja", "yue"), router.speakers)
-        assertEquals(true, router.speakers.separateChinese)
-        router.mode = PartnerMode.AUTO
-        assertEquals(SpeakerLanguages("ja", null), router.speakers)
     }
 }

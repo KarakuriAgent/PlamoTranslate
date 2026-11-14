@@ -33,7 +33,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import app.plamotranslate.ModelState
 import app.plamotranslate.ModelSwitch
-import app.plamotranslate.label
 import app.plamotranslate.llm.Language
 
 /*
@@ -64,8 +63,8 @@ internal fun Controls(state: ConversationUiState, model: ModelState, actions: Co
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            SelfMenu(state.self, state.languages, actions.self)
-            PartnerMenu(state.mode, state.self, state.languages, actions.partnerMode)
+            SelfMenu(state.self, actions.self)
+            PartnerMenu(state.mode, state.self, actions.partnerMode)
             LogMenu(enabled = state.turns.isNotEmpty(), actions)
             Spacer(Modifier.weight(1f))
             // 翻訳モデルをその場で切り替える（2026-11-06、作者の要望）
@@ -74,7 +73,7 @@ internal fun Controls(state: ConversationUiState, model: ModelState, actions: Co
         val status = when {
             state.asr is AsrState.Missing -> "音声認識のモデルがありません。トップ画面に戻ると出る「モデルの準備」でダウンロードしてください"
             state.asr is AsrState.Failed -> state.asr.message
-            state.asr == AsrState.Loading -> "音声認識（${state.asrModel.label}）を準備中…"
+            state.asr == AsrState.Loading -> "音声認識を準備中…"
             model is ModelState.Missing -> "翻訳モデルがありません。トップ画面に戻ると出る「モデルの準備」か、設定の画面でダウンロードしてください"
             model is ModelState.Failed -> model.message
             model is ModelState.Loading -> "翻訳モデルを準備中…"
@@ -93,15 +92,15 @@ internal fun Controls(state: ConversationUiState, model: ModelState, actions: Co
 
 /**
  * 自分の言語の選択（2026-11-08、作者の要望で日本語以外も選べるようにした）。
- * 選べるのはSenseVoiceが聞き分けられる言語だけ（[ConversationLanguages.selves]。2026-11-09、補助のモデルの言語は相手だけにした）。
+ * 選べるのは音声認識が聞き分けられる言語だけ（[CONVERSATION_LANGUAGES]）。
  */
 @Composable
-private fun SelfMenu(self: Language, languages: ConversationLanguages, onSelect: (Language) -> Unit) {
+private fun SelfMenu(self: Language, onSelect: (Language) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         OutlinedButton(onClick = { open = true }, contentPadding = MenuButtonPadding) { Text("自分：${PartnerMode(self).short()} ▾") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            languages.selves.forEach { lang ->
+            CONVERSATION_LANGUAGES.forEach { lang ->
                 DropdownMenuItem(
                     text = { Text(if (lang == self) "✓ ${lang.conversationLabel}" else lang.conversationLabel) },
                     onClick = { open = false; onSelect(lang) },
@@ -116,13 +115,13 @@ private fun SelfMenu(self: Language, languages: ConversationLanguages, onSelect:
  * 自分と同じ言語は出さない（[PartnerMode.choices]）。
  */
 @Composable
-private fun PartnerMenu(mode: PartnerMode, self: Language, languages: ConversationLanguages, onSelect: (PartnerMode) -> Unit) {
+private fun PartnerMenu(mode: PartnerMode, self: Language, onSelect: (PartnerMode) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         OutlinedButton(onClick = { open = true }, contentPadding = MenuButtonPadding) { Text("相手：${mode.short()} ▾") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            PartnerMode.choices(self, languages).forEach { m ->
-                val label = m.label(self, languages)
+            PartnerMode.choices(self).forEach { m ->
+                val label = m.label(self)
                 DropdownMenuItem(
                     text = { Text(if (m == mode) "✓ $label" else label) },
                     onClick = { open = false; onSelect(m) },
